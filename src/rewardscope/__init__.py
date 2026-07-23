@@ -7,6 +7,7 @@ from rewardscope.schemas import (
     RolloutRecord,
     VerificationResult,
 )
+from rewardscope.extraction import extract_numeric_answer
 
 __all__ = [
     "ExtractionResult",
@@ -14,4 +15,5 @@ __all__ = [
     "RewardBreakdown",
     "RolloutRecord",
     "VerificationResult",
+    "extract_numeric_answer",
 ]
