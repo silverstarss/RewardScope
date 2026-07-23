@@ -2,7 +2,7 @@ from fractions import Fraction
 
 import pytest
 
-from rewardscope import ExtractionStatus, extract_numeric_answer
+from rewardscope import ExtractionStatus, extract_numeric_answer, parse_numeric_value
 
 
 @pytest.mark.parametrize(
@@ -110,3 +110,15 @@ def test_later_explicit_final_answer_overrides_earlier_reasoning_numbers():
 def test_response_must_be_a_string():
     with pytest.raises(TypeError, match="response must be a string"):
         extract_numeric_answer(42)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("raw_answer", "expected_value"),
+    [
+        ("0.500", Fraction(1, 2)),
+        ("2/4", Fraction(1, 2)),
+        (r"\frac{1}{2}", Fraction(1, 2)),
+    ],
+)
+def test_parse_numeric_value_uses_exact_fraction_arithmetic(raw_answer, expected_value):
+    assert parse_numeric_value(raw_answer) == expected_value

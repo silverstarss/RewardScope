@@ -7,7 +7,7 @@ from rewardscope.schemas import (
     RolloutRecord,
     VerificationResult,
 )
-from rewardscope.extraction import extract_numeric_answer
+from rewardscope.extraction import extract_numeric_answer, parse_numeric_value
 
 __all__ = [
     "ExtractionResult",
@@ -16,4 +16,12 @@ __all__ = [
     "RolloutRecord",
     "VerificationResult",
     "extract_numeric_answer",
+    "parse_numeric_value",
 ]
+
+from rewardscope.verification import (
+    verify_extracted_numeric_answer,
+    verify_numeric_answer,
+)
+
+__all__ += ["verify_extracted_numeric_answer", "verify_numeric_answer"]

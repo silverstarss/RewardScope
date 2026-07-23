@@ -167,6 +167,21 @@ def _successful_result(
 
 
 def _parse_numeric_candidate(raw_answer: str) -> tuple[str, Fraction] | None:
+    parsed_value = parse_numeric_value(raw_answer)
+    if parsed_value is None:
+        return None
+    return _normalize_fraction(parsed_value)
+
+
+def parse_numeric_value(raw_answer: str) -> Fraction | None:
+    """Parse a supported numeric form into an exact ``Fraction`` value.
+
+    This intentionally accepts only scalar numbers and simple fractions. Symbolic
+    expressions such as ``sqrt(2)`` are left for a future symbolic verifier.
+    """
+    if not isinstance(raw_answer, str):
+        raise TypeError("raw_answer must be a string.")
+
     candidate = raw_answer.strip().strip("$").strip()
     candidate = _strip_terminal_period(candidate)
 
@@ -174,7 +189,7 @@ def _parse_numeric_candidate(raw_answer: str) -> tuple[str, Fraction] | None:
     if latex_fraction:
         numerator, denominator = latex_fraction.groups()
         try:
-            return _normalize_fraction(Fraction(int(numerator), int(denominator)))
+            return Fraction(int(numerator), int(denominator))
         except ZeroDivisionError:
             return None
 
@@ -184,10 +199,10 @@ def _parse_numeric_candidate(raw_answer: str) -> tuple[str, Fraction] | None:
         denominator = Fraction(simple_fraction.group("denominator"))
         if denominator == 0:
             return None
-        return _normalize_fraction(numerator / denominator)
+        return numerator / denominator
 
     if _NUMBER_PATTERN.fullmatch(candidate):
-        return _normalize_fraction(Fraction(candidate))
+        return Fraction(candidate)
     return None
 
 
@@ -196,7 +211,7 @@ def _normalize_fraction(value: Fraction) -> tuple[str, Fraction]:
 
 
 def _strip_terminal_period(candidate: str) -> str:
-    if candidate.endswith(".") and candidate.count(".") == 1:
+    if candidate.endswith("."):
         return candidate[:-1]
     return candidate
 
