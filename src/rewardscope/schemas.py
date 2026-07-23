@@ -2,29 +2,125 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass, fields
+from enum import Enum
+from fractions import Fraction
+from math import isfinite
 from typing import Any
+
+
+class ExtractionStatus(str, Enum):
+    """How an answer candidate was identified in a model response."""
+
+    EXPLICIT_FINAL = "explicit_final"
+    BOXED = "boxed"
+    IMPLICIT_TERMINAL = "implicit_terminal"
+    AMBIGUOUS = "ambiguous"
+    MISSING = "missing"
+    PARSE_ERROR = "parse_error"
+
+
+_SUCCESSFUL_EXTRACTION_STATUSES = frozenset(
+    {
+        ExtractionStatus.EXPLICIT_FINAL,
+        ExtractionStatus.BOXED,
+        ExtractionStatus.IMPLICIT_TERMINAL,
+    }
+)
+
+
+@dataclass(frozen=True)
+class ExtractionResult:
+    """A candidate answer, its normalized form, and its exact numeric value."""
+
+    raw_answer: str | None
+    normalized_answer: str | None
+    parsed_value: Fraction | None
+    extraction_status: ExtractionStatus
+    format_ok: bool
+
+    @property
+    def extraction_ok(self) -> bool:
+        """Whether extraction produced one usable numeric answer."""
+        return self.extraction_status in _SUCCESSFUL_EXTRACTION_STATUSES
+
+    def __post_init__(self) -> None:
+        _require_bool("format_ok", self.format_ok)
+
+        if self.extraction_ok:
+            _require_non_empty_str("raw_answer", self.raw_answer)
+            _require_non_empty_str("normalized_answer", self.normalized_answer)
+            if not isinstance(self.parsed_value, Fraction):
+                raise ValueError("Successful extraction requires a Fraction parsed_value.")
+        else:
+            if self.parsed_value is not None:
+                raise ValueError("Failed extraction cannot have a parsed_value.")
+            if self.normalized_answer is not None:
+                raise ValueError("Failed extraction cannot have a normalized_answer.")
+
+        expected_format_ok = self.extraction_status in {
+            ExtractionStatus.EXPLICIT_FINAL,
+            ExtractionStatus.BOXED,
+        }
+        if self.format_ok is not expected_format_ok:
+            raise ValueError(
+                "format_ok must be true only for explicit_final or boxed extraction."
+            )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-serializable dictionary."""
+        return _to_json_dict(self)
 
 
 @dataclass(frozen=True)
 class VerificationResult:
-    """Structured result returned by an answer verifier."""
+    """The verifier's correctness decision for one extracted answer."""
 
-    extracted_answer: str | None
-    extraction_ok: bool
-    format_ok: bool
+    extraction: ExtractionResult
     is_correct: bool
-    error_type: str | None
+    error_type: str | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.extraction, ExtractionResult):
+            raise ValueError("extraction must be an ExtractionResult.")
+        _require_bool("is_correct", self.is_correct)
+        _require_optional_non_empty_str("error_type", self.error_type)
+
+        if self.is_correct and not self.extraction.extraction_ok:
+            raise ValueError("A response cannot be correct when extraction failed.")
+        if self.is_correct and self.error_type is not None:
+            raise ValueError("A correct response cannot have an error_type.")
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serializable dictionary."""
-        return asdict(self)
+        return _to_json_dict(self)
+
+
+@dataclass(frozen=True)
+class RewardBreakdown:
+    """Reward components assigned to one rollout."""
+
+    correctness_reward: float
+    format_reward: float
+    length_penalty: float
+    final_reward: float
+
+    def __post_init__(self) -> None:
+        _require_finite_number("correctness_reward", self.correctness_reward)
+        _require_finite_number("format_reward", self.format_reward)
+        _require_finite_number("length_penalty", self.length_penalty)
+        _require_finite_number("final_reward", self.final_reward)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-serializable dictionary."""
+        return _to_json_dict(self)
 
 
 @dataclass(frozen=True)
 class RolloutRecord:
-    """One generated response plus verifier, reward, and token metadata."""
+    """One generated response and its verification, reward, and token metadata."""
 
+    run_id: str
     prompt_id: str
     sample_id: int
     model_name: str
@@ -37,45 +133,102 @@ class RolloutRecord:
     prompt: str
     response: str
     ground_truth: str
-    extracted_answer: str | None
-    extraction_ok: bool
-    format_ok: bool
-    raw_correctness: bool
-    format_reward: float
-    length_penalty: float
-    final_reward: float
+    verification: VerificationResult
+    reward: RewardBreakdown
     prompt_tokens: int
     response_tokens: int
     hit_max_length: bool
-    latency_seconds: float
-    verifier_error_type: str | None
 
     def __post_init__(self) -> None:
-        """Validate fields that affect metrics and cost accounting."""
+        """Validate identifiers, generation settings, and token accounting."""
+        for name in ("run_id", "prompt_id", "model_name", "dataset_name", "split"):
+            _require_non_empty_str(name, getattr(self, name))
+        for name in ("prompt", "response", "ground_truth"):
+            _require_str(name, getattr(self, name))
+
         _require_non_negative_int("sample_id", self.sample_id)
         _require_non_negative_int("seed", self.seed)
-        _require_non_negative_int("max_new_tokens", self.max_new_tokens)
+        _require_positive_int("max_new_tokens", self.max_new_tokens)
         _require_non_negative_int("prompt_tokens", self.prompt_tokens)
         _require_non_negative_int("response_tokens", self.response_tokens)
         _require_non_negative_float("temperature", self.temperature)
         _require_probability("top_p", self.top_p)
-        _require_non_negative_float("latency_seconds", self.latency_seconds)
+        _require_bool("hit_max_length", self.hit_max_length)
+
+        if not isinstance(self.verification, VerificationResult):
+            raise ValueError("verification must be a VerificationResult.")
+        if not isinstance(self.reward, RewardBreakdown):
+            raise ValueError("reward must be a RewardBreakdown.")
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serializable dictionary."""
-        return asdict(self)
+        return _to_json_dict(self)
 
 
-def _require_non_negative_int(name: str, value: int) -> None:
+def _to_json_dict(instance: object) -> dict[str, Any]:
+    return {
+        field.name: _to_json_value(getattr(instance, field.name))
+        for field in fields(instance)
+    }
+
+
+def _to_json_value(value: Any) -> Any:
+    if isinstance(value, Fraction):
+        return str(value)
+    if isinstance(value, Enum):
+        return value.value
+    if hasattr(value, "__dataclass_fields__"):
+        return _to_json_dict(value)
+    return value
+
+
+def _require_str(name: str, value: object) -> None:
+    if not isinstance(value, str):
+        raise ValueError(f"{name} must be a string.")
+
+
+def _require_non_empty_str(name: str, value: object) -> None:
+    _require_str(name, value)
+    if not value.strip():
+        raise ValueError(f"{name} must be a non-empty string.")
+
+
+def _require_optional_non_empty_str(name: str, value: object) -> None:
+    if value is not None:
+        _require_non_empty_str(name, value)
+
+
+def _require_bool(name: str, value: object) -> None:
+    if not isinstance(value, bool):
+        raise ValueError(f"{name} must be a boolean.")
+
+
+def _require_non_negative_int(name: str, value: object) -> None:
     if not isinstance(value, int) or isinstance(value, bool) or value < 0:
         raise ValueError(f"{name} must be a non-negative integer.")
 
 
-def _require_non_negative_float(name: str, value: float) -> None:
-    if not isinstance(value, (int, float)) or isinstance(value, bool) or value < 0:
+def _require_positive_int(name: str, value: object) -> None:
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+        raise ValueError(f"{name} must be a positive integer.")
+
+
+def _require_finite_number(name: str, value: object) -> None:
+    if (
+        not isinstance(value, (int, float))
+        or isinstance(value, bool)
+        or not isfinite(value)
+    ):
+        raise ValueError(f"{name} must be a finite number.")
+
+
+def _require_non_negative_float(name: str, value: object) -> None:
+    _require_finite_number(name, value)
+    if value < 0:
         raise ValueError(f"{name} must be a non-negative number.")
 
 
-def _require_probability(name: str, value: float) -> None:
-    if not isinstance(value, (int, float)) or isinstance(value, bool) or not 0 <= value <= 1:
-        raise ValueError(f"{name} must be a number between 0 and 1.")
+def _require_probability(name: str, value: object) -> None:
+    _require_finite_number(name, value)
+    if not 0 < value <= 1:
+        raise ValueError(f"{name} must be a number in the interval (0, 1].")

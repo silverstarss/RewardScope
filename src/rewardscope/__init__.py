@@ -1,5 +1,17 @@
 """RewardScope package."""
 
-from rewardscope.schemas import RolloutRecord, VerificationResult
+from rewardscope.schemas import (
+    ExtractionResult,
+    ExtractionStatus,
+    RewardBreakdown,
+    RolloutRecord,
+    VerificationResult,
+)
 
-__all__ = ["RolloutRecord", "VerificationResult"]
+__all__ = [
+    "ExtractionResult",
+    "ExtractionStatus",
+    "RewardBreakdown",
+    "RolloutRecord",
+    "VerificationResult",
+]
