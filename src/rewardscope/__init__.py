@@ -37,3 +37,21 @@ __all__ += ["RolloutInput", "build_numeric_rollout"]
 from rewardscope.io import read_rollouts_jsonl, write_rollouts_jsonl
 
 __all__ += ["read_rollouts_jsonl", "write_rollouts_jsonl"]
+
+from rewardscope.metrics import (
+    MetricsIssue,
+    PromptGroupMetrics,
+    PromptGroupMetricsResult,
+    PromptGroupSummary,
+    compute_prompt_group_metrics,
+    summarize_prompt_group_metrics,
+)
+
+__all__ += [
+    "MetricsIssue",
+    "PromptGroupMetrics",
+    "PromptGroupMetricsResult",
+    "PromptGroupSummary",
+    "compute_prompt_group_metrics",
+    "summarize_prompt_group_metrics",
+]
