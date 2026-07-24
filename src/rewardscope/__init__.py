@@ -55,3 +55,15 @@ __all__ += [
     "compute_prompt_group_metrics",
     "summarize_prompt_group_metrics",
 ]
+
+from rewardscope.reports import (
+    AnalysisArtifacts,
+    analyze_rollouts_jsonl,
+    write_analysis_report,
+)
+
+__all__ += [
+    "AnalysisArtifacts",
+    "analyze_rollouts_jsonl",
+    "write_analysis_report",
+]
