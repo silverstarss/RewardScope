@@ -29,3 +29,7 @@ __all__ += ["verify_extracted_numeric_answer", "verify_numeric_answer"]
 from rewardscope.rewards import RewardConfig, compute_reward
 
 __all__ += ["RewardConfig", "compute_reward"]
+
+from rewardscope.rollouts import RolloutInput, build_numeric_rollout
+
+__all__ += ["RolloutInput", "build_numeric_rollout"]
