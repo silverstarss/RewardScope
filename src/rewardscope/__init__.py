@@ -33,3 +33,7 @@ __all__ += ["RewardConfig", "compute_reward"]
 from rewardscope.rollouts import RolloutInput, build_numeric_rollout
 
 __all__ += ["RolloutInput", "build_numeric_rollout"]
+
+from rewardscope.io import read_rollouts_jsonl, write_rollouts_jsonl
+
+__all__ += ["read_rollouts_jsonl", "write_rollouts_jsonl"]
