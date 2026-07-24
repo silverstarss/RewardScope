@@ -58,12 +58,16 @@ __all__ += [
 
 from rewardscope.reports import (
     AnalysisArtifacts,
+    AnalysisPlotArtifacts,
     analyze_rollouts_jsonl,
     write_analysis_report,
+    write_analysis_plots,
 )
 
 __all__ += [
     "AnalysisArtifacts",
+    "AnalysisPlotArtifacts",
     "analyze_rollouts_jsonl",
     "write_analysis_report",
+    "write_analysis_plots",
 ]
