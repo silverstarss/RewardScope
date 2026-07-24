@@ -56,6 +56,7 @@ def make_rollout(**overrides):
         "temperature": 0.7,
         "top_p": 0.95,
         "max_new_tokens": 256,
+        "batch_size": 4,
         "prompt": "What is 40 + 2?",
         "response": "The answer is 42.",
         "ground_truth": "42",
@@ -163,6 +164,11 @@ def test_top_p_must_be_a_finite_value_in_open_closed_unit_interval(
 def test_max_new_tokens_must_be_positive():
     with pytest.raises(ValueError, match="max_new_tokens must be a positive integer"):
         make_rollout(max_new_tokens=0)
+
+
+def test_batch_size_must_be_positive():
+    with pytest.raises(ValueError, match="batch_size must be a positive integer"):
+        make_rollout(batch_size=0)
 
 
 def test_reward_values_must_be_finite():

@@ -22,6 +22,7 @@ def make_record(**overrides):
         "temperature": 0.7,
         "top_p": 0.95,
         "max_new_tokens": 256,
+        "batch_size": 4,
         "prompt": "What is 40 + 2?",
         "response": "The final answer is 42.",
         "ground_truth": "42",

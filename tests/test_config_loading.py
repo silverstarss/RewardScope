@@ -9,6 +9,8 @@ VALID_CONFIG = """
 model:
   name: Qwen/Qwen2.5-1.5B-Instruct
   tokenizer_name: Qwen/Qwen2.5-1.5B-Instruct
+  prompt_format: chat
+  context_window: 32768
 dataset:
   name: gsm8k
   split: test
@@ -19,6 +21,7 @@ sampling:
   temperature: 0.7
   top_p: 0.95
   max_new_tokens: 256
+  batch_size: 4
 reward:
   correct_answer_reward: 1.0
   format_compliance_reward: 0.1
@@ -42,8 +45,11 @@ def test_load_run_config_builds_validated_nested_dataclasses(tmp_path):
 
     assert config.model.name == "Qwen/Qwen2.5-1.5B-Instruct"
     assert config.model.tokenizer_name == "Qwen/Qwen2.5-1.5B-Instruct"
+    assert config.model.prompt_format == "chat"
+    assert config.model.context_window == 32768
     assert config.dataset.max_prompts == 16
     assert config.sampling.num_samples == 8
+    assert config.sampling.batch_size == 4
     assert config.reward.format_compliance_reward == 0.1
     assert config.reward.incorrect_answer_reward == 0.0
     assert config.output.output_dir == Path("outputs/smoke-run")
@@ -81,6 +87,12 @@ def test_loader_rejects_missing_required_fields(tmp_path):
     [
         ("  num_samples: 8", "  num_samples: 0", "num_samples must be a positive integer"),
         ("  top_p: 0.95", "  top_p: 0", "top_p must be a number in the interval"),
+        ("  batch_size: 4", "  batch_size: 0", "batch_size must be a positive integer"),
+        (
+            "  prompt_format: chat",
+            "  prompt_format: markdown",
+            "prompt_format must be one of",
+        ),
         (
             "  k_values: [1, 4, 8]",
             "  k_values: [1, 9]",

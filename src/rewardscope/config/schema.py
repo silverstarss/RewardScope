@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import isfinite
 from pathlib import Path
+from typing import Literal
 
 from rewardscope.rewards import RewardConfig
 
@@ -13,10 +14,15 @@ from rewardscope.rewards import RewardConfig
 class ModelConfig:
     name: str
     tokenizer_name: str | None = None
+    prompt_format: Literal["chat", "plain", "auto"] = "auto"
+    context_window: int | None = None
 
     def __post_init__(self) -> None:
         _require_non_empty_str("name", self.name)
         _require_optional_non_empty_str("tokenizer_name", self.tokenizer_name)
+        if self.prompt_format not in {"chat", "plain", "auto"}:
+            raise ValueError("prompt_format must be one of: chat, plain, auto.")
+        _require_optional_positive_int("context_window", self.context_window)
 
 
 @dataclass(frozen=True)
@@ -38,6 +44,7 @@ class SamplingConfig:
     temperature: float
     top_p: float
     max_new_tokens: int
+    batch_size: int
 
     def __post_init__(self) -> None:
         _require_positive_int("num_samples", self.num_samples)
@@ -45,6 +52,9 @@ class SamplingConfig:
         _require_non_negative_finite_number("temperature", self.temperature)
         _require_probability("top_p", self.top_p)
         _require_positive_int("max_new_tokens", self.max_new_tokens)
+        _require_positive_int("batch_size", self.batch_size)
+        if self.temperature == 0 and self.num_samples != 1:
+            raise ValueError("num_samples must be 1 when temperature is 0.")
 
 
 @dataclass(frozen=True)

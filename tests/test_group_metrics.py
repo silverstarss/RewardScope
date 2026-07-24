@@ -24,6 +24,7 @@ def make_row(**overrides):
         "temperature": 0.7,
         "top_p": 0.95,
         "max_new_tokens": 256,
+        "batch_size": 4,
         "prompt": "What is 40 + 2?",
         "response": "Answer: 42",
         "ground_truth": "42",
@@ -124,6 +125,7 @@ def test_same_prompt_id_from_different_runs_is_not_merged():
         ("model_name", "other-model", "inconsistent_model"),
         ("dataset_name", "MATH", "inconsistent_dataset"),
         ("temperature", 0.8, "inconsistent_generation_config"),
+        ("batch_size", 8, "inconsistent_generation_config"),
     ],
 )
 def test_non_strict_mode_records_and_excludes_inconsistent_group_members(

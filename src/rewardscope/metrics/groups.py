@@ -103,6 +103,7 @@ class _RolloutObservation:
     temperature: float
     top_p: float
     max_new_tokens: int
+    batch_size: int
     raw_correctness: bool
     extraction_ok: bool
     normalized_answer: str | None
@@ -291,6 +292,7 @@ def _parse_rollout_row(row: Mapping[str, Any], row_index: int) -> _RolloutObserv
         temperature=_require_non_negative_number(row, "temperature"),
         top_p=_require_probability(row, "top_p"),
         max_new_tokens=_require_positive_int(row, "max_new_tokens"),
+        batch_size=_require_positive_int(row, "batch_size"),
         raw_correctness=_require_row_bool(verification, "is_correct"),
         extraction_ok=extraction_ok,
         normalized_answer=normalized_answer,
@@ -368,11 +370,13 @@ def _find_group_mismatch(
         row.temperature,
         row.top_p,
         row.max_new_tokens,
+        row.batch_size,
     ) != (
         canonical.seed,
         canonical.temperature,
         canonical.top_p,
         canonical.max_new_tokens,
+        canonical.batch_size,
     ):
         return "inconsistent_generation_config"
     return None

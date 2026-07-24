@@ -55,7 +55,7 @@ def _load_model_config(config: dict[str, Any]) -> ModelConfig:
     _require_exact_keys(
         config,
         required={"name"},
-        optional={"tokenizer_name"},
+        optional={"tokenizer_name", "prompt_format", "context_window"},
         context="model",
     )
     return ModelConfig(**config)
@@ -74,7 +74,14 @@ def _load_dataset_config(config: dict[str, Any]) -> DatasetConfig:
 def _load_sampling_config(config: dict[str, Any]) -> SamplingConfig:
     _require_exact_keys(
         config,
-        required={"num_samples", "seed", "temperature", "top_p", "max_new_tokens"},
+        required={
+            "num_samples",
+            "seed",
+            "temperature",
+            "top_p",
+            "max_new_tokens",
+            "batch_size",
+        },
         optional=set(),
         context="sampling",
     )

@@ -105,3 +105,7 @@ __all__ += [
     "load_dataset_examples",
     "load_gsm8k_examples",
 ]
+
+from rewardscope.sampling import GeneratedResponse, TransformersSampler
+
+__all__ += ["GeneratedResponse", "TransformersSampler"]

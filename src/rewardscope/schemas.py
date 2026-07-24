@@ -130,6 +130,7 @@ class RolloutRecord:
     temperature: float
     top_p: float
     max_new_tokens: int
+    batch_size: int
     prompt: str
     response: str
     ground_truth: str
@@ -149,6 +150,7 @@ class RolloutRecord:
         _require_non_negative_int("sample_id", self.sample_id)
         _require_non_negative_int("seed", self.seed)
         _require_positive_int("max_new_tokens", self.max_new_tokens)
+        _require_positive_int("batch_size", self.batch_size)
         _require_non_negative_int("prompt_tokens", self.prompt_tokens)
         _require_non_negative_int("response_tokens", self.response_tokens)
         _require_non_negative_float("temperature", self.temperature)

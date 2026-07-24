@@ -23,6 +23,7 @@ class RolloutInput:
     temperature: float
     top_p: float
     max_new_tokens: int
+    batch_size: int
     prompt: str
     response: str
     ground_truth: str
@@ -58,6 +59,7 @@ def build_numeric_rollout(
         temperature=rollout_input.temperature,
         top_p=rollout_input.top_p,
         max_new_tokens=rollout_input.max_new_tokens,
+        batch_size=rollout_input.batch_size,
         prompt=rollout_input.prompt,
         response=rollout_input.response,
         ground_truth=rollout_input.ground_truth,
