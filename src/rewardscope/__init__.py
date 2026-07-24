@@ -91,3 +91,17 @@ __all__ += [
     "SamplingConfig",
     "load_run_config",
 ]
+
+from rewardscope.datasets import (
+    DEFAULT_GSM8K_PROMPT_TEMPLATE,
+    DatasetExample,
+    load_dataset_examples,
+    load_gsm8k_examples,
+)
+
+__all__ += [
+    "DEFAULT_GSM8K_PROMPT_TEMPLATE",
+    "DatasetExample",
+    "load_dataset_examples",
+    "load_gsm8k_examples",
+]
