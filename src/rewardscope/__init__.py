@@ -71,3 +71,23 @@ __all__ += [
     "write_analysis_report",
     "write_analysis_plots",
 ]
+
+from rewardscope.config import (
+    AnalysisConfig,
+    DatasetConfig,
+    ModelConfig,
+    OutputConfig,
+    RunConfig,
+    SamplingConfig,
+    load_run_config,
+)
+
+__all__ += [
+    "AnalysisConfig",
+    "DatasetConfig",
+    "ModelConfig",
+    "OutputConfig",
+    "RunConfig",
+    "SamplingConfig",
+    "load_run_config",
+]
