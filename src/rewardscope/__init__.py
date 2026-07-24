@@ -25,3 +25,7 @@ from rewardscope.verification import (
 )
 
 __all__ += ["verify_extracted_numeric_answer", "verify_numeric_answer"]
+
+from rewardscope.rewards import RewardConfig, compute_reward
+
+__all__ += ["RewardConfig", "compute_reward"]
