@@ -70,6 +70,8 @@ from rewardscope.reports import (
     write_analysis_report,
     write_analysis_plots,
     OfflineRescoreArtifacts,
+    RolloutComparisonArtifacts,
+    compare_rollouts_jsonl,
     rescore_completed_run,
 )
 
@@ -81,6 +83,8 @@ __all__ += [
     "write_analysis_plots",
     "OfflineRescoreArtifacts",
     "rescore_completed_run",
+    "RolloutComparisonArtifacts",
+    "compare_rollouts_jsonl",
 ]
 
 from rewardscope.config import (
