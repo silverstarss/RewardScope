@@ -33,6 +33,11 @@ _EXPLICIT_PATTERNS = (
     re.compile(r"(?i)^\s*(?:the\s+)?answer\s*(?:is|:|=)\s*(?P<answer>.+?)\s*$"),
     re.compile(r"^\s*####\s*(?P<answer>.+?)\s*$"),
 )
+_TERMINAL_MARKED_ANSWER_PATTERN = re.compile(
+    r"(?i)(?:^|[.!?]\s+|,\s+)(?P<marker>(?:the\s+)?(?:final\s+)?answer)\s*"
+    r"(?P<separator>is|:|=)\s*(?P<answer>.+?)\s*$"
+)
+_TERMINAL_HASH_ANSWER_PATTERN = re.compile(r"####\s*(?P<answer>.+?)\s*$")
 _LATEX_FRACTION_PATTERN = re.compile(r"\\(?:d?frac)\s*\{\s*([+-]?\d+)\s*\}\s*\{\s*([+-]?\d+)\s*\}")
 _NUMBER = r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)"
 _NUMBER_PATTERN = re.compile(_NUMBER)
@@ -40,7 +45,13 @@ _GROUPED_NUMBER_PATTERN = re.compile(r"[+-]?(?:\d{1,3}(?:,\d{3})+)(?:\.\d*)?")
 _SIMPLE_FRACTION_PATTERN = re.compile(rf"(?P<numerator>{_NUMBER})\s*/\s*(?P<denominator>{_NUMBER})")
 _NUMERIC_CANDIDATE_PATTERN = re.compile(rf"(?<![\w.])({_NUMBER}(?:\s*/\s*{_NUMBER})?)(?![\w.])")
 _UNIT_PATTERN = re.compile(
-    r"(?i)\s+(meters?|miles?|minutes?|hours?|days?|weeks?|months?|years?|cups?|dollars?|eggs?|glasses?|gb)\s*$"
+    r"(?i)\s+(?:"
+    r"cubic\s+inches?|miles?(?:\s+per\s+hour)?|"
+    r"meters?|minutes?|hours?|seconds?|days?|weeks?|months?|years?|"
+    r"pounds?|lbs?|liters?|cups?|dollars?|eggs?|glasses?|"
+    r"bolts?|dozens?|boxes?|points?|oranges?|bags?|tomatoes?|"
+    r"containers?|sheets?|thorns?|gb"
+    r")(?:\s+of\s+[a-z][a-z -]*)?\s*$"
 )
 
 
@@ -148,6 +159,7 @@ def _collect_candidates(response: str) -> tuple[ExtractionCandidate, ...]:
     terminal = _last_non_empty_line_with_span(response)
     if terminal is not None:
         line, start, end = terminal
+        candidates.extend(_collect_terminal_marked_candidates(line, start))
         if line.count("=") == 1:
             _, right_hand_side = line.split("=", maxsplit=1)
             candidate = right_hand_side.strip()
@@ -156,7 +168,47 @@ def _collect_candidates(response: str) -> tuple[ExtractionCandidate, ...]:
                 candidates.append(ExtractionCandidate("implicit_terminal", candidate, (candidate_start, candidate_start + len(candidate))))
         elif _is_terminal_candidate_shape(line):
             candidates.append(ExtractionCandidate("implicit_terminal", line, (start, end)))
-    return tuple(sorted(candidates, key=lambda candidate: candidate.span))
+    return tuple(
+        sorted(
+            {
+                (candidate.candidate_type, candidate.raw_answer, candidate.span): candidate
+                for candidate in candidates
+            }.values(),
+            key=lambda candidate: candidate.span,
+        )
+    )
+
+
+def _collect_terminal_marked_candidates(
+    line: str, line_start: int
+) -> list[ExtractionCandidate]:
+    """Recognize a marked final answer only at the end of the final response line."""
+    candidates: list[ExtractionCandidate] = []
+    explicit_match = _TERMINAL_MARKED_ANSWER_PATTERN.search(line)
+    if explicit_match:
+        start, end = explicit_match.span("answer")
+        candidates.append(
+            ExtractionCandidate(
+                "explicit_final",
+                explicit_match.group("answer"),
+                (line_start + start, line_start + end),
+                format_marker_ok=(
+                    explicit_match.group("marker").strip().lower() != "the answer"
+                ),
+            )
+        )
+    hash_match = _TERMINAL_HASH_ANSWER_PATTERN.search(line)
+    if hash_match:
+        start, end = hash_match.span("answer")
+        candidates.append(
+            ExtractionCandidate(
+                "explicit_final",
+                hash_match.group("answer"),
+                (line_start + start, line_start + end),
+                format_marker_ok=True,
+            )
+        )
+    return candidates
 
 
 def _collect_boxed_candidates(response: str) -> list[ExtractionCandidate]:
@@ -220,7 +272,8 @@ def _parse_raw_answer(
     if not candidate:
         return None, None, False, "empty_candidate"
 
-    surface_format_ok = True
+    candidate, has_math_delimiters = _unwrap_math_delimiters(candidate)
+    surface_format_ok = not has_math_delimiters
     has_percent = candidate.endswith("%")
     if has_percent:
         if percentage_policy == "reject":
@@ -287,6 +340,14 @@ def _last_non_empty_line_with_span(response: str) -> tuple[str, int, int] | None
 
 def _strip_terminal_period(candidate: str) -> str:
     return candidate[:-1].rstrip() if candidate.endswith(".") else candidate
+
+
+def _unwrap_math_delimiters(candidate: str) -> tuple[str, bool]:
+    wrappers = ((r"\(", r"\)"), (r"\[", r"\]"), ("$$", "$$"))
+    for prefix, suffix in wrappers:
+        if candidate.startswith(prefix) and candidate.endswith(suffix):
+            return candidate[len(prefix) : -len(suffix)].strip(), True
+    return candidate, False
 
 
 def _failed_result(

@@ -167,6 +167,42 @@ def test_common_answer_decorations_are_extracted_conservatively(response, normal
 
 
 @pytest.mark.parametrize(
+    ("response", "normalized"),
+    [
+        ("We calculate 9 * 2 = 18. The answer is $18.", "18"),
+        ("The answer is 3 bolts.", "3"),
+        (r"The answer is \( \$460 \).", "460"),
+        ("The answer is 2 bags of dog food.", "2"),
+        ("The answer is 1.5 miles per hour.", "3/2"),
+        ("The answer is 120 cubic inches.", "120"),
+    ],
+)
+def test_terminal_marked_answers_accept_observed_currency_wrappers_and_units(
+    response, normalized
+):
+    result = extract_numeric_answer(response)
+
+    assert result.extraction_status is ExtractionStatus.EXPLICIT_FINAL
+    assert result.normalized_answer == normalized
+    assert result.format_ok is False
+
+
+def test_terminal_hash_marker_is_collected_after_an_invalid_answer_phrase():
+    result = extract_numeric_answer("The answer is 33. #### 33")
+
+    assert result.extraction_status is ExtractionStatus.EXPLICIT_FINAL
+    assert result.normalized_answer == "33"
+    assert result.selected_candidate_type == "explicit_final"
+    assert result.format_ok is True
+
+
+def test_plain_prose_that_is_not_a_terminal_answer_marker_remains_unparsed():
+    result = extract_numeric_answer("We saw 18 birds, then 9 more birds.")
+
+    assert result.extraction_status is ExtractionStatus.AMBIGUOUS
+
+
+@pytest.mark.parametrize(
     ("policy", "normalized", "status"),
     [
         ("literal", "35", ExtractionStatus.EXPLICIT_FINAL),
