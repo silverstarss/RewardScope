@@ -3,6 +3,7 @@
 from rewardscope.datasets.gsm8k import (
     DEFAULT_GSM8K_PROMPT_TEMPLATE,
     GSM8K_COT_4SHOT_PROMPT_TEMPLATE,
+    GSM8K_COT_4SHOT_TERMINAL_PROMPT_TEMPLATE,
     STRICT_GSM8K_PROMPT_TEMPLATE,
     load_gsm8k_examples,
 )
@@ -12,6 +13,7 @@ from rewardscope.datasets.schema import DatasetExample, DatasetLoadResult
 __all__ = [
     "DEFAULT_GSM8K_PROMPT_TEMPLATE",
     "GSM8K_COT_4SHOT_PROMPT_TEMPLATE",
+    "GSM8K_COT_4SHOT_TERMINAL_PROMPT_TEMPLATE",
     "STRICT_GSM8K_PROMPT_TEMPLATE",
     "DatasetExample",
     "DatasetLoadResult",

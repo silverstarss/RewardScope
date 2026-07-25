@@ -182,7 +182,10 @@ def test_summary_reports_group_outcomes_pass_at_k_and_effective_token_cost():
     ]
     all_wrong_rows = [
         make_row(prompt_id="wrong", response="Answer: 41", response_tokens=5),
-        make_row(prompt_id="wrong", sample_id=1, response="Answer: 40", response_tokens=6),
+        make_row(
+            prompt_id="wrong", sample_id=1, response="Answer: 40",
+            response_tokens=6, hit_max_length=True,
+        ),
     ]
 
     result = compute_prompt_group_metrics(mixed_rows + all_wrong_rows)
@@ -195,6 +198,9 @@ def test_summary_reports_group_outcomes_pass_at_k_and_effective_token_cost():
     assert summary.mixed_rate == pytest.approx(0.5)
     assert summary.pass_at_k == {1: pytest.approx(0.25), 2: pytest.approx(0.5), 4: None}
     assert summary.pass_at_k_eligible_group_count == {1: 2, 2: 2, 4: 0}
+    assert summary.hit_max_length_count == 1
+    assert summary.hit_max_length_rate == pytest.approx(1 / 4)
+    assert summary.groups_with_hit_max_length_count == 1
     assert summary.total_response_tokens == 18
     assert summary.effective_response_tokens == 7
     assert summary.effective_token_ratio == pytest.approx(7 / 18)

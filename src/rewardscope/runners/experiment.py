@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 class ExperimentArtifacts:
     output_dir: Path
     inputs_jsonl: Path
+    rendered_prompt_json: Path
     rollouts_jsonl: Path
     config_snapshot_json: Path
     provenance_json: Path
@@ -74,10 +75,12 @@ def _run_experiment(config: RunConfig, *, requested_config: dict[str, Any]) -> E
         sampler = TransformersSampler.from_pretrained(config.model)
         resolved_config = _resolved_config(config, final_dir)
         inputs_path = staging_dir / "inputs.jsonl"
+        rendered_prompt_path = staging_dir / "rendered_prompt.json"
         config_path = staging_dir / "config_snapshot.json"
         provenance_path = staging_dir / "provenance.json"
         atomic_write_json(config_path, {"requested": requested_config, "resolved": resolved_config})
         atomic_write_jsonl(inputs_path, [_input_row(example, config) for example in examples])
+        atomic_write_json(rendered_prompt_path, _rendered_prompt_row(examples[0], sampler))
         atomic_write_json(provenance_path, _build_provenance(config, sampler, dataset_result, examples))
 
         phase = "generation"
@@ -145,6 +148,7 @@ def _run_experiment(config: RunConfig, *, requested_config: dict[str, Any]) -> E
         return ExperimentArtifacts(
             output_dir=final_dir,
             inputs_jsonl=final_dir / "inputs.jsonl",
+            rendered_prompt_json=final_dir / "rendered_prompt.json",
             rollouts_jsonl=final_dir / "rollouts.jsonl",
             config_snapshot_json=final_dir / "config_snapshot.json",
             provenance_json=final_dir / "provenance.json",
@@ -232,6 +236,18 @@ def _input_row(example: DatasetExample, config: RunConfig) -> dict[str, Any]:
     }
 
 
+def _rendered_prompt_row(example: DatasetExample, sampler: Any) -> dict[str, Any]:
+    prompt_format = sampler._resolve_prompt_format()
+    return {
+        "prompt_id": example.prompt_id,
+        "source_index": example.source_index,
+        "prompt_format": prompt_format,
+        "add_generation_prompt": prompt_format == "chat",
+        "dataset_prompt": example.prompt,
+        "model_input_prompt": sampler.render_prompt(example.prompt),
+    }
+
+
 def _resolved_config(config: RunConfig, output_dir: Path) -> dict[str, Any]:
     resolved = _serialize_value(config)
     resolved["output"]["output_dir"] = str(output_dir)
@@ -267,6 +283,7 @@ def _build_provenance(config: RunConfig, sampler: Any, dataset_result: Any, exam
             "name": config.dataset.name, "config": config.dataset.config,
             "split": config.dataset.split, "revision": config.dataset.revision,
             "selection": config.dataset.selection, "dataset_seed": config.dataset.dataset_seed,
+            "requested_source_indices": list(config.dataset.source_indices) if config.dataset.source_indices else None,
             "source_count": dataset_result.source_count, "selected_count": len(examples),
             "selected_source_indices": [example.source_index for example in examples],
             "selected_prompt_ids": [example.prompt_id for example in examples],

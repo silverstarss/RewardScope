@@ -71,10 +71,18 @@ def _load_dataset_config(config: dict[str, Any]) -> DatasetConfig:
     _require_exact_keys(
         config,
         required={"name", "config", "split"},
-        optional={"revision", "max_examples", "selection", "dataset_seed", "prompt_template"},
+        optional={
+            "revision", "max_examples", "selection", "dataset_seed", "source_indices",
+            "prompt_template",
+        },
         context="dataset",
     )
-    return DatasetConfig(**config)
+    values = dict(config)
+    if "source_indices" in values:
+        if not isinstance(values["source_indices"], list):
+            raise ValueError("dataset.source_indices must be a list of non-negative integers.")
+        values["source_indices"] = tuple(values["source_indices"])
+    return DatasetConfig(**values)
 
 
 def _load_sampling_config(config: dict[str, Any]) -> SamplingConfig:

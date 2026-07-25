@@ -106,6 +106,7 @@ __all__ += [
 from rewardscope.datasets import (
     DEFAULT_GSM8K_PROMPT_TEMPLATE,
     GSM8K_COT_4SHOT_PROMPT_TEMPLATE,
+    GSM8K_COT_4SHOT_TERMINAL_PROMPT_TEMPLATE,
     STRICT_GSM8K_PROMPT_TEMPLATE,
     DatasetExample,
     load_dataset_examples,
@@ -116,6 +117,7 @@ from rewardscope.datasets import (
 __all__ += [
     "DEFAULT_GSM8K_PROMPT_TEMPLATE",
     "GSM8K_COT_4SHOT_PROMPT_TEMPLATE",
+    "GSM8K_COT_4SHOT_TERMINAL_PROMPT_TEMPLATE",
     "STRICT_GSM8K_PROMPT_TEMPLATE",
     "DatasetExample",
     "load_dataset_examples",

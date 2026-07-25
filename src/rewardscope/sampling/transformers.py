@@ -200,6 +200,20 @@ class TransformersSampler:
                 )
         return responses
 
+    def render_prompt(self, prompt: str) -> str:
+        """Render one dataset prompt into the exact model input text without sampling."""
+        prompt_list = _validate_prompts([prompt])
+        if self._resolve_prompt_format() == "plain":
+            return prompt_list[0]
+        rendered = self._tokenizer.apply_chat_template(
+            [{"role": "user", "content": prompt_list[0]}],
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+        if not isinstance(rendered, str) or not rendered:
+            raise ValueError("Tokenizer chat template must render one prompt as a non-empty string.")
+        return rendered
+
     def _tokenize(self, prompts: list[str]) -> Mapping[str, Any]:
         prompt_format = self._resolve_prompt_format()
         if prompt_format == "chat":

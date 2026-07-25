@@ -78,6 +78,29 @@ def test_cot_four_shot_template_has_fixed_demonstrations_and_an_open_answer(monk
     assert examples[0].prompt.endswith("Answer:\n")
 
 
+def test_terminal_cot_template_ends_with_the_strict_final_answer_instruction(monkeypatch):
+    monkeypatch.setattr(gsm8k, "_load_hf_dataset", lambda *args, **kwargs: FAKE_GSM8K_ROWS)
+
+    examples = load_dataset_examples(
+        DatasetConfig(
+            name="gsm8k", config="main", split="test",
+            prompt_template="gsm8k_cot_4shot_terminal",
+        )
+    )
+
+    assert examples[0].prompt.count("Question:") == 5
+    assert examples[0].prompt.count("#### ") == 5
+    assert examples[0].prompt.endswith("or explanations on the final line.\n")
+
+
+def test_gsm8k_adapter_uses_explicit_source_indices_in_requested_order(monkeypatch):
+    monkeypatch.setattr(gsm8k, "_load_hf_dataset", lambda *args, **kwargs: FAKE_GSM8K_ROWS)
+
+    examples = load_gsm8k_examples("test", source_indices=(1, 0))
+
+    assert [example.source_index for example in examples] == [1, 0]
+
+
 def test_unsupported_dataset_is_rejected_without_importing_hugging_face_data():
     config = DatasetConfig(name="math", config=None, split="test")
 

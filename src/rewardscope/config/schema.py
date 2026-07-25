@@ -34,7 +34,10 @@ class DatasetConfig:
     max_examples: int | None = None
     selection: Literal["first", "random"] = "first"
     dataset_seed: int = 0
-    prompt_template: Literal["baseline", "strict", "gsm8k_cot_4shot"] = "baseline"
+    source_indices: tuple[int, ...] | None = None
+    prompt_template: Literal[
+        "baseline", "strict", "gsm8k_cot_4shot", "gsm8k_cot_4shot_terminal"
+    ] = "baseline"
 
     def __post_init__(self) -> None:
         _require_non_empty_str("name", self.name)
@@ -44,11 +47,19 @@ class DatasetConfig:
         _require_optional_positive_int("max_examples", self.max_examples)
         if self.selection not in {"first", "random"}:
             raise ValueError("selection must be one of: first, random.")
-        if self.prompt_template not in {"baseline", "strict", "gsm8k_cot_4shot"}:
+        if self.prompt_template not in {
+            "baseline", "strict", "gsm8k_cot_4shot", "gsm8k_cot_4shot_terminal"
+        }:
             raise ValueError(
-                "prompt_template must be one of: baseline, strict, gsm8k_cot_4shot."
+                "prompt_template must be one of: baseline, strict, gsm8k_cot_4shot, "
+                "gsm8k_cot_4shot_terminal."
             )
         _require_non_negative_int("dataset_seed", self.dataset_seed)
+        _require_optional_source_indices(self.source_indices)
+        if self.source_indices is not None and self.max_examples is not None:
+            raise ValueError("max_examples must be None when source_indices is set.")
+        if self.source_indices is not None and self.selection != "first":
+            raise ValueError("selection must be first when source_indices is set.")
 
 
 @dataclass(frozen=True)
@@ -150,6 +161,17 @@ def _require_optional_positive_int(name: str, value: object) -> None:
 def _require_non_negative_int(name: str, value: object) -> None:
     if not isinstance(value, int) or isinstance(value, bool) or value < 0:
         raise ValueError(f"{name} must be a non-negative integer.")
+
+
+def _require_optional_source_indices(value: object) -> None:
+    if value is None:
+        return
+    if not isinstance(value, tuple) or not value:
+        raise ValueError("source_indices must be a non-empty tuple of non-negative integers or None.")
+    if any(not isinstance(index, int) or isinstance(index, bool) or index < 0 for index in value):
+        raise ValueError("source_indices must be a non-empty tuple of non-negative integers or None.")
+    if len(set(value)) != len(value):
+        raise ValueError("source_indices must not contain duplicates.")
 
 
 def _require_non_negative_finite_number(name: str, value: object) -> None:

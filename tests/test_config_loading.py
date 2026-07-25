@@ -143,3 +143,37 @@ def test_gsm8k_sanity_config_locks_the_intended_evaluation_contract():
     assert config.sampling.num_samples == 1
     assert config.sampling.max_new_tokens == 512
     assert config.analysis.k_values == (1,)
+
+
+def test_loader_parses_explicit_source_indices(tmp_path):
+    content = VALID_CONFIG.replace(
+        "  dataset_seed: 9", "  dataset_seed: 9\n  source_indices: [3, 1]"
+    ).replace("  max_examples: 16\n", "")
+
+    config = load_run_config(write_config(tmp_path, content))
+
+    assert config.dataset.source_indices == (3, 1)
+
+
+def test_explicit_source_indices_reject_conflicting_max_examples(tmp_path):
+    content = VALID_CONFIG.replace(
+        "  dataset_seed: 9", "  dataset_seed: 9\n  source_indices: [3, 1]"
+    )
+
+    with pytest.raises(ValueError, match="max_examples must be None"):
+        load_run_config(write_config(tmp_path, content))
+
+
+def test_format_calibration_config_locks_the_fixed_subset_and_decoding_contract():
+    config = load_run_config(
+        Path(__file__).parents[1] / "configs" / "gsm8k-format-calibration.yaml"
+    )
+
+    assert config.model.prompt_format == "chat"
+    assert config.dataset.source_indices == (
+        2, 4, 6, 7, 10, 12, 13, 15, 16, 21, 41, 60, 0, 1, 3, 5
+    )
+    assert config.dataset.prompt_template == "gsm8k_cot_4shot_terminal"
+    assert config.sampling.temperature == 0.0
+    assert config.sampling.num_samples == 1
+    assert config.sampling.max_new_tokens == 512

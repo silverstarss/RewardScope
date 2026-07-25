@@ -47,6 +47,9 @@ class FakeSampler:
     def _eos_token_id(self):
         return 2
 
+    def render_prompt(self, prompt):
+        return f"<user>{prompt}</user><assistant>"
+
     def generate(self, prompts, sampling):
         responses = [
             GeneratedResponse(prompt_index, sample_index, "Answer: 42", 5, 3, "eos")
@@ -89,11 +92,13 @@ def test_successful_run_commits_staging_and_writes_complete_manifest(tmp_path):
     assert artifacts.output_dir.is_dir()
     assert artifacts.summary.group_count == 2
     assert len(artifacts.inputs_jsonl.read_text(encoding="utf-8").splitlines()) == 2
+    rendered_prompt = json.loads(artifacts.rendered_prompt_json.read_text(encoding="utf-8"))
+    assert rendered_prompt["model_input_prompt"] == "<user>Question: 40 + 2</user><assistant>"
     assert len(artifacts.rollouts_jsonl.read_text(encoding="utf-8").splitlines()) == 4
     manifest = json.loads(artifacts.manifest_json.read_text(encoding="utf-8"))
     assert manifest["status"] == "completed"
     assert {item["path"] for item in manifest["artifacts"]} >= {
-        "inputs.jsonl", "rollouts.jsonl", "config_snapshot.json", "provenance.json",
+        "inputs.jsonl", "rendered_prompt.json", "rollouts.jsonl", "config_snapshot.json", "provenance.json",
         "analysis/prompt_group_metrics.csv", "analysis/summary.json", "analysis/issues.jsonl",
     }
     assert not list((artifacts.output_dir.parent / ".staging").glob("fake-run-*"))

@@ -28,6 +28,8 @@ class FakeTokenizer:
 
     def apply_chat_template(self, messages, **kwargs):
         self.chat_calls.append((messages, kwargs))
+        if kwargs.get("tokenize") is False:
+            return f"<chat>{messages[0]['content']}</chat><assistant>"
         return {
             "input_ids": torch.tensor([[0, 11]]),
             "attention_mask": torch.tensor([[0, 1]]),
@@ -120,6 +122,17 @@ def test_chat_mode_uses_the_tokenized_generation_template_call():
         "padding": True,
         "return_tensors": "pt",
     }
+
+
+def test_render_prompt_exports_the_chat_templated_generation_input():
+    sampler = TransformersSampler(FakeModel(), FakeTokenizer(), ModelConfig(name="fake", prompt_format="chat"))
+
+    rendered = sampler.render_prompt("hello")
+
+    assert rendered == "<chat>hello</chat><assistant>"
+    messages, kwargs = sampler._tokenizer.chat_calls[-1]
+    assert messages == [{"role": "user", "content": "hello"}]
+    assert kwargs == {"tokenize": False, "add_generation_prompt": True}
 
 
 def test_context_window_overflow_is_an_explicit_error_before_generation():

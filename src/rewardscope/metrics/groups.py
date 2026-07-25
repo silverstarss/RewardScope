@@ -81,6 +81,9 @@ class PromptGroupSummary:
     mean_final_reward_range: float
     format_error_rate: float
     extraction_failure_rate: float
+    hit_max_length_count: int
+    hit_max_length_rate: float
+    groups_with_hit_max_length_count: int
     total_response_tokens: int
     effective_response_tokens: int
     effective_token_ratio: float
@@ -185,6 +188,7 @@ def summarize_prompt_group_metrics(
     group_count = len(groups)
     total_samples = sum(group.sample_count for group in groups)
     total_response_tokens = sum(group.response_tokens_total for group in groups)
+    hit_max_length_count = sum(group.hit_max_length_count for group in groups)
     mixed_groups = [group for group in groups if group.mixed]
     effective_response_tokens = sum(
         group.response_tokens_total for group in mixed_groups
@@ -229,6 +233,11 @@ def summarize_prompt_group_metrics(
         ),
         extraction_failure_rate=(
             sum(group.extraction_failure_count for group in groups) / total_samples
+        ),
+        hit_max_length_count=hit_max_length_count,
+        hit_max_length_rate=hit_max_length_count / total_samples,
+        groups_with_hit_max_length_count=sum(
+            group.hit_max_length_count > 0 for group in groups
         ),
         total_response_tokens=total_response_tokens,
         effective_response_tokens=effective_response_tokens,

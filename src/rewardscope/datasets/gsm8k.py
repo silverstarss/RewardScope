@@ -42,6 +42,19 @@ Question: {question}
 Answer:
 """
 
+GSM8K_COT_4SHOT_TERMINAL_PROMPT_TEMPLATE = GSM8K_COT_4SHOT_PROMPT_TEMPLATE.removesuffix(
+    "Question: {question}\nAnswer:\n"
+) + """Question: {question}
+
+Solve the problem step by step.
+End your response with exactly one final line in this format:
+
+#### <number>
+
+The final line must contain only the number after ####.
+Do not include units, commas, currency symbols, percent signs, or explanations on the final line.
+"""
+
 
 def load_gsm8k_examples(
     split: str,
@@ -51,6 +64,7 @@ def load_gsm8k_examples(
     max_examples: int | None = None,
     selection: str = "first",
     dataset_seed: int = 0,
+    source_indices: tuple[int, ...] | None = None,
     prompt_template: str = DEFAULT_GSM8K_PROMPT_TEMPLATE,
 ) -> list[DatasetExample]:
     """Load and normalize one GSM8K ``main`` split into RewardScope examples."""
@@ -62,6 +76,7 @@ def load_gsm8k_examples(
             max_examples=max_examples,
             selection=selection,
             dataset_seed=dataset_seed,
+            source_indices=source_indices,
             prompt_template=prompt_template,
         ).examples
     )
@@ -70,6 +85,7 @@ def load_gsm8k_examples(
 def load_gsm8k_result(
     *, config_name: str | None, split: str, revision: str | None,
     max_examples: int | None, selection: str, dataset_seed: int,
+    source_indices: tuple[int, ...] | None = None,
     prompt_template: str = DEFAULT_GSM8K_PROMPT_TEMPLATE,
 ) -> DatasetLoadResult:
     """Load GSM8K while preserving selection and source metadata."""
@@ -79,11 +95,13 @@ def load_gsm8k_result(
     _require_optional_positive_int("max_examples", max_examples)
     _require_selection(selection)
     _require_non_negative_int("dataset_seed", dataset_seed)
+    _require_optional_source_indices(source_indices)
     _require_prompt_template(prompt_template)
 
     dataset = _load_hf_dataset(split, config_name=config_name, revision=revision)
-    source_indices = _select_indices(
-        len(dataset), max_examples=max_examples, selection=selection, dataset_seed=dataset_seed
+    selected_indices = _select_indices(
+        len(dataset), max_examples=max_examples, selection=selection, dataset_seed=dataset_seed,
+        source_indices=source_indices,
     )
     examples = [
         _normalize_gsm8k_row(
@@ -92,7 +110,7 @@ def load_gsm8k_result(
             index=index,
             prompt_template=prompt_template,
         )
-        for index in source_indices
+        for index in selected_indices
     ]
     fingerprint = getattr(dataset, "_fingerprint", None)
     return DatasetLoadResult(
@@ -170,14 +188,31 @@ def _require_non_negative_int(name: str, value: object) -> None:
         raise ValueError(f"{name} must be a non-negative integer.")
 
 
+def _require_optional_source_indices(value: object) -> None:
+    if value is None:
+        return
+    if not isinstance(value, tuple) or not value:
+        raise ValueError("source_indices must be a non-empty tuple of non-negative integers or None.")
+    if any(not isinstance(index, int) or isinstance(index, bool) or index < 0 for index in value):
+        raise ValueError("source_indices must be a non-empty tuple of non-negative integers or None.")
+    if len(set(value)) != len(value):
+        raise ValueError("source_indices must not contain duplicates.")
+
+
 def _require_selection(value: object) -> None:
     if value not in {"first", "random"}:
         raise ValueError("selection must be one of: first, random.")
 
 
 def _select_indices(
-    source_count: int, *, max_examples: int | None, selection: str, dataset_seed: int
+    source_count: int, *, max_examples: int | None, selection: str, dataset_seed: int,
+    source_indices: tuple[int, ...] | None = None,
 ) -> list[int]:
+    if source_indices is not None:
+        out_of_range = [index for index in source_indices if index >= source_count]
+        if out_of_range:
+            raise ValueError(f"source_indices contains out-of-range values: {out_of_range}.")
+        return list(source_indices)
     limit = source_count if max_examples is None else min(source_count, max_examples)
     if selection == "first":
         return list(range(limit))
