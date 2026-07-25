@@ -1,22 +1,29 @@
 """RewardScope package."""
 
 from rewardscope.schemas import (
+    ExtractionCandidate,
     ExtractionResult,
     ExtractionStatus,
     RewardBreakdown,
     RolloutRecord,
     VerificationResult,
 )
-from rewardscope.extraction import extract_numeric_answer, parse_numeric_value
+from rewardscope.extraction import (
+    NumericExtractionConfig,
+    extract_numeric_answer,
+    parse_numeric_value,
+)
 
 __all__ = [
     "ExtractionResult",
+    "ExtractionCandidate",
     "ExtractionStatus",
     "RewardBreakdown",
     "RolloutRecord",
     "VerificationResult",
     "extract_numeric_answer",
     "parse_numeric_value",
+    "NumericExtractionConfig",
 ]
 
 from rewardscope.verification import (
@@ -62,6 +69,8 @@ from rewardscope.reports import (
     analyze_rollouts_jsonl,
     write_analysis_report,
     write_analysis_plots,
+    OfflineRescoreArtifacts,
+    rescore_completed_run,
 )
 
 __all__ += [
@@ -70,6 +79,8 @@ __all__ += [
     "analyze_rollouts_jsonl",
     "write_analysis_report",
     "write_analysis_plots",
+    "OfflineRescoreArtifacts",
+    "rescore_completed_run",
 ]
 
 from rewardscope.config import (
@@ -94,17 +105,27 @@ __all__ += [
 
 from rewardscope.datasets import (
     DEFAULT_GSM8K_PROMPT_TEMPLATE,
+    GSM8K_COT_4SHOT_PROMPT_TEMPLATE,
+    STRICT_GSM8K_PROMPT_TEMPLATE,
     DatasetExample,
     load_dataset_examples,
+    load_dataset_result,
     load_gsm8k_examples,
 )
 
 __all__ += [
     "DEFAULT_GSM8K_PROMPT_TEMPLATE",
+    "GSM8K_COT_4SHOT_PROMPT_TEMPLATE",
+    "STRICT_GSM8K_PROMPT_TEMPLATE",
     "DatasetExample",
     "load_dataset_examples",
+    "load_dataset_result",
     "load_gsm8k_examples",
 ]
+
+from rewardscope.runners import ExperimentArtifacts, run_experiment, run_experiment_from_yaml
+
+__all__ += ["ExperimentArtifacts", "run_experiment", "run_experiment_from_yaml"]
 
 from rewardscope.sampling import GeneratedResponse, TransformersSampler
 

@@ -6,7 +6,9 @@ from collections import Counter
 from dataclasses import dataclass
 from fractions import Fraction
 from math import sqrt
+import os
 from pathlib import Path
+import tempfile
 
 from rewardscope.metrics import (
     PromptGroupMetrics,
@@ -265,5 +267,14 @@ def _outcome_name(group: PromptGroupMetrics) -> str:
 
 
 def _save_and_close(plt, fig, path: Path) -> None:
-    fig.savefig(path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
+    descriptor, temporary_name = tempfile.mkstemp(
+        dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
+    )
+    os.close(descriptor)
+    temporary = Path(temporary_name)
+    try:
+        fig.savefig(temporary, format="png", dpi=150, bbox_inches="tight")
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+        plt.close(fig)

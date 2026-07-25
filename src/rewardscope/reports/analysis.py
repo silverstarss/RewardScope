@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import csv
+import io
 import json
 from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 
 from rewardscope.io import read_rollouts_jsonl
+from rewardscope.io.atomic import atomic_write_json, atomic_write_jsonl, _atomic_write
 from rewardscope.metrics import (
     PromptGroupMetrics,
     PromptGroupMetricsResult,
@@ -77,23 +79,19 @@ def _write_group_metrics_csv(
     path: Path, groups: tuple[PromptGroupMetrics, ...]
 ) -> None:
     field_names = [field.name for field in fields(PromptGroupMetrics)]
-    with path.open("w", encoding="utf-8", newline="") as output_file:
-        writer = csv.DictWriter(output_file, fieldnames=field_names)
-        writer.writeheader()
-        for group in groups:
-            row = asdict(group)
-            row["bad_case_tags"] = ";".join(group.bad_case_tags)
-            writer.writerow(row)
+    output = io.StringIO(newline="")
+    writer = csv.DictWriter(output, fieldnames=field_names)
+    writer.writeheader()
+    for group in groups:
+        row = asdict(group)
+        row["bad_case_tags"] = ";".join(group.bad_case_tags)
+        writer.writerow(row)
+    _atomic_write(path, output.getvalue())
 
 
 def _write_json(path: Path, value: object) -> None:
-    with path.open("w", encoding="utf-8", newline="\n") as output_file:
-        json.dump(value, output_file, ensure_ascii=False, allow_nan=False, indent=2)
-        output_file.write("\n")
+    atomic_write_json(path, value)
 
 
 def _write_issues_jsonl(path: Path, result: PromptGroupMetricsResult) -> None:
-    with path.open("w", encoding="utf-8", newline="\n") as output_file:
-        for issue in result.issues:
-            json.dump(asdict(issue), output_file, ensure_ascii=False, allow_nan=False)
-            output_file.write("\n")
+    atomic_write_jsonl(path, [asdict(issue) for issue in result.issues])

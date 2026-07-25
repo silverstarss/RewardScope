@@ -28,19 +28,33 @@ class ModelConfig:
 @dataclass(frozen=True)
 class DatasetConfig:
     name: str
+    config: str | None
     split: str
-    max_prompts: int | None = None
+    revision: str | None = None
+    max_examples: int | None = None
+    selection: Literal["first", "random"] = "first"
+    dataset_seed: int = 0
+    prompt_template: Literal["baseline", "strict", "gsm8k_cot_4shot"] = "baseline"
 
     def __post_init__(self) -> None:
         _require_non_empty_str("name", self.name)
         _require_non_empty_str("split", self.split)
-        _require_optional_positive_int("max_prompts", self.max_prompts)
+        _require_optional_non_empty_str("config", self.config)
+        _require_optional_non_empty_str("revision", self.revision)
+        _require_optional_positive_int("max_examples", self.max_examples)
+        if self.selection not in {"first", "random"}:
+            raise ValueError("selection must be one of: first, random.")
+        if self.prompt_template not in {"baseline", "strict", "gsm8k_cot_4shot"}:
+            raise ValueError(
+                "prompt_template must be one of: baseline, strict, gsm8k_cot_4shot."
+            )
+        _require_non_negative_int("dataset_seed", self.dataset_seed)
 
 
 @dataclass(frozen=True)
 class SamplingConfig:
     num_samples: int
-    seed: int
+    generation_seed: int
     temperature: float
     top_p: float
     max_new_tokens: int
@@ -48,7 +62,7 @@ class SamplingConfig:
 
     def __post_init__(self) -> None:
         _require_positive_int("num_samples", self.num_samples)
-        _require_non_negative_int("seed", self.seed)
+        _require_non_negative_int("generation_seed", self.generation_seed)
         _require_non_negative_finite_number("temperature", self.temperature)
         _require_probability("top_p", self.top_p)
         _require_positive_int("max_new_tokens", self.max_new_tokens)
@@ -61,6 +75,7 @@ class SamplingConfig:
 class OutputConfig:
     run_id: str
     output_dir: Path
+    keep_failed_run: bool = False
 
     def __post_init__(self) -> None:
         _require_non_empty_str("run_id", self.run_id)
@@ -68,16 +83,21 @@ class OutputConfig:
             raise ValueError("output_dir must be a Path.")
         if not str(self.output_dir):
             raise ValueError("output_dir must not be empty.")
+        if not isinstance(self.keep_failed_run, bool):
+            raise ValueError("keep_failed_run must be a boolean.")
 
 
 @dataclass(frozen=True)
 class AnalysisConfig:
     strict: bool = False
     k_values: tuple[int, ...] = (1, 4, 8)
+    write_plots: bool = False
 
     def __post_init__(self) -> None:
         if not isinstance(self.strict, bool):
             raise ValueError("strict must be a boolean.")
+        if not isinstance(self.write_plots, bool):
+            raise ValueError("write_plots must be a boolean.")
         _require_k_values(self.k_values)
 
 

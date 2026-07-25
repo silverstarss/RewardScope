@@ -20,6 +20,43 @@ class ExtractionStatus(str, Enum):
     PARSE_ERROR = "parse_error"
 
 
+@dataclass(frozen=True)
+class ExtractionCandidate:
+    """One answer-like span discovered during numeric extraction."""
+
+    candidate_type: str
+    raw_answer: str
+    span: tuple[int, int]
+    normalized_answer: str | None = None
+    parsed_value: Fraction | None = None
+    format_marker_ok: bool = False
+    format_ok: bool = False
+    rejection_reason: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.candidate_type not in {"explicit_final", "boxed", "implicit_terminal"}:
+            raise ValueError("candidate_type is unsupported.")
+        _require_str("raw_answer", self.raw_answer)
+        if (
+            not isinstance(self.span, tuple)
+            or len(self.span) != 2
+            or any(not isinstance(value, int) or isinstance(value, bool) or value < 0 for value in self.span)
+            or self.span[0] > self.span[1]
+        ):
+            raise ValueError("span must be a non-negative (start, end) tuple.")
+        _require_bool("format_ok", self.format_ok)
+        _require_bool("format_marker_ok", self.format_marker_ok)
+        _require_optional_non_empty_str("normalized_answer", self.normalized_answer)
+        _require_optional_non_empty_str("rejection_reason", self.rejection_reason)
+        if self.parsed_value is None:
+            if self.normalized_answer is not None:
+                raise ValueError("Rejected candidates cannot have a normalized_answer.")
+            if self.format_ok:
+                raise ValueError("Rejected candidates cannot be format-compliant.")
+        elif not isinstance(self.parsed_value, Fraction):
+            raise ValueError("parsed_value must be a Fraction or None.")
+
+
 _SUCCESSFUL_EXTRACTION_STATUSES = frozenset(
     {
         ExtractionStatus.EXPLICIT_FINAL,
@@ -38,6 +75,13 @@ class ExtractionResult:
     parsed_value: Fraction | None
     extraction_status: ExtractionStatus
     format_ok: bool
+    all_candidates: tuple[ExtractionCandidate, ...] = ()
+    valid_candidates: tuple[ExtractionCandidate, ...] = ()
+    rejected_candidates: tuple[ExtractionCandidate, ...] = ()
+    selected_candidate: ExtractionCandidate | None = None
+    selected_candidate_type: str | None = None
+    selected_span: tuple[int, int] | None = None
+    ambiguity_reason: str | None = None
 
     @property
     def extraction_ok(self) -> bool:
@@ -58,14 +102,30 @@ class ExtractionResult:
             if self.normalized_answer is not None:
                 raise ValueError("Failed extraction cannot have a normalized_answer.")
 
-        expected_format_ok = self.extraction_status in {
-            ExtractionStatus.EXPLICIT_FINAL,
-            ExtractionStatus.BOXED,
-        }
-        if self.format_ok is not expected_format_ok:
-            raise ValueError(
-                "format_ok must be true only for explicit_final or boxed extraction."
-            )
+        if self.format_ok and not self.extraction_ok:
+            raise ValueError("Failed extraction cannot be format-compliant.")
+        for name in ("all_candidates", "valid_candidates", "rejected_candidates"):
+            candidates = getattr(self, name)
+            if not isinstance(candidates, tuple) or any(
+                not isinstance(candidate, ExtractionCandidate) for candidate in candidates
+            ):
+                raise ValueError(f"{name} must be a tuple of ExtractionCandidate objects.")
+        if self.selected_candidate is not None and not isinstance(
+            self.selected_candidate, ExtractionCandidate
+        ):
+            raise ValueError("selected_candidate must be an ExtractionCandidate or None.")
+        if self.selected_candidate_type is not None and self.selected_candidate_type not in {
+            "explicit_final", "boxed", "implicit_terminal"
+        }:
+            raise ValueError("selected_candidate_type is unsupported.")
+        if self.selected_span is not None:
+            ExtractionCandidate("explicit_final", "", self.selected_span)
+        _require_optional_non_empty_str("ambiguity_reason", self.ambiguity_reason)
+        if self.extraction_ok and self.selected_candidate is not None:
+            if self.selected_candidate_type != self.selected_candidate.candidate_type:
+                raise ValueError("selected candidate type must match selected_candidate.")
+            if self.selected_span != self.selected_candidate.span:
+                raise ValueError("selected span must match selected_candidate.")
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serializable dictionary."""
@@ -126,7 +186,7 @@ class RolloutRecord:
     model_name: str
     dataset_name: str
     split: str
-    seed: int
+    generation_seed: int
     temperature: float
     top_p: float
     max_new_tokens: int
@@ -148,7 +208,7 @@ class RolloutRecord:
             _require_str(name, getattr(self, name))
 
         _require_non_negative_int("sample_id", self.sample_id)
-        _require_non_negative_int("seed", self.seed)
+        _require_non_negative_int("generation_seed", self.generation_seed)
         _require_positive_int("max_new_tokens", self.max_new_tokens)
         _require_positive_int("batch_size", self.batch_size)
         _require_non_negative_int("prompt_tokens", self.prompt_tokens)
@@ -181,6 +241,10 @@ def _to_json_value(value: Any) -> Any:
         return value.value
     if hasattr(value, "__dataclass_fields__"):
         return _to_json_dict(value)
+    if isinstance(value, tuple | list):
+        return [_to_json_value(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _to_json_value(item) for key, item in value.items()}
     return value
 
 

@@ -1,6 +1,6 @@
 """YAML experiment configuration loading."""
 
-from rewardscope.config.load import load_run_config
+from rewardscope.config.load import load_run_config, load_run_config_with_requested
 from rewardscope.config.schema import (
     AnalysisConfig,
     DatasetConfig,
@@ -18,4 +18,5 @@ __all__ = [
     "RunConfig",
     "SamplingConfig",
     "load_run_config",
+    "load_run_config_with_requested",
 ]

@@ -7,15 +7,16 @@ dataset:
   config: main
   split: test
   revision: null
-  max_examples: 16
+  max_examples: 128
   selection: first
   dataset_seed: 42
+  prompt_template: gsm8k_cot_4shot
 
 sampling:
-  num_samples: 8
+  num_samples: 1
   generation_seed: 42
-  temperature: 0.7
-  top_p: 0.95
+  temperature: 0.0
+  top_p: 1.0
   max_new_tokens: 512
   batch_size: 4
 
@@ -26,11 +27,11 @@ reward:
   length_penalty_per_token: 0.0
 
 output:
-  run_id: gsm8k-qwen-smoke
-  output_dir: outputs/gsm8k-qwen-smoke-B-extractor-modified
+  run_id: gsm8k-qwen-sanity-cot4-128
+  output_dir: outputs/gsm8k-qwen-sanity-cot4-128
   keep_failed_run: false
 
 analysis:
-  strict: false
-  k_values: [1, 4, 8]
-  write_plots: true
+  strict: true
+  k_values: [1]
+  write_plots: false

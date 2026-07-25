@@ -13,11 +13,14 @@ model:
   context_window: 32768
 dataset:
   name: gsm8k
+  config: main
   split: test
-  max_prompts: 16
+  max_examples: 16
+  selection: first
+  dataset_seed: 9
 sampling:
   num_samples: 8
-  seed: 42
+  generation_seed: 42
   temperature: 0.7
   top_p: 0.95
   max_new_tokens: 256
@@ -47,7 +50,9 @@ def test_load_run_config_builds_validated_nested_dataclasses(tmp_path):
     assert config.model.tokenizer_name == "Qwen/Qwen2.5-1.5B-Instruct"
     assert config.model.prompt_format == "chat"
     assert config.model.context_window == 32768
-    assert config.dataset.max_prompts == 16
+    assert config.dataset.max_examples == 16
+    assert config.dataset.dataset_seed == 9
+    assert config.dataset.prompt_template == "baseline"
     assert config.sampling.num_samples == 8
     assert config.sampling.batch_size == 4
     assert config.reward.format_compliance_reward == 0.1
@@ -69,7 +74,7 @@ def test_reward_and_analysis_sections_use_defaults_when_omitted(tmp_path):
 
 
 def test_loader_rejects_unknown_fields(tmp_path):
-    content = VALID_CONFIG.replace("  max_prompts: 16", "  max_prompts: 16\n  typo: true")
+    content = VALID_CONFIG.replace("  max_examples: 16", "  max_examples: 16\n  typo: true")
 
     with pytest.raises(ValueError, match="dataset has unknown fields: typo"):
         load_run_config(write_config(tmp_path, content))
@@ -92,6 +97,11 @@ def test_loader_rejects_missing_required_fields(tmp_path):
             "  prompt_format: chat",
             "  prompt_format: markdown",
             "prompt_format must be one of",
+        ),
+        (
+            "  dataset_seed: 9",
+            "  dataset_seed: 9\n  prompt_template: verbose",
+            "prompt_template must be one of",
         ),
         (
             "  k_values: [1, 4, 8]",
@@ -120,3 +130,16 @@ def test_loader_reports_invalid_yaml(tmp_path):
 def test_loader_requires_top_level_mapping(tmp_path):
     with pytest.raises(ValueError, match="configuration must be a mapping"):
         load_run_config(write_config(tmp_path, "- not\n- a mapping\n"))
+
+
+def test_gsm8k_sanity_config_locks_the_intended_evaluation_contract():
+    config = load_run_config(
+        Path(__file__).parents[1] / "configs" / "gsm8k-sanity.yaml"
+    )
+
+    assert config.dataset.max_examples == 128
+    assert config.dataset.prompt_template == "gsm8k_cot_4shot"
+    assert config.sampling.temperature == 0.0
+    assert config.sampling.num_samples == 1
+    assert config.sampling.max_new_tokens == 512
+    assert config.analysis.k_values == (1,)

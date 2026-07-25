@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from rewardscope.schemas import RolloutRecord
+from rewardscope.io.atomic import atomic_write_jsonl
 
 
 def write_rollouts_jsonl(
@@ -24,7 +25,11 @@ def write_rollouts_jsonl(
     serialized_records = _serialize_records(records)
     destination.parent.mkdir(parents=True, exist_ok=True)
 
-    mode = "a" if append else "w"
+    if not append:
+        atomic_write_jsonl(destination, [json.loads(record) for record in serialized_records])
+        return len(serialized_records)
+
+    mode = "a"
     with destination.open(mode, encoding="utf-8", newline="\n") as output_file:
         for serialized_record in serialized_records:
             output_file.write(serialized_record)

@@ -135,7 +135,7 @@ class TransformersSampler:
         """Generate ``num_samples`` responses per prompt in a stable flat order.
 
         Reproducibility is guaranteed only for identical library versions, device,
-        prompt order, batch size, configuration, and seed. It is not guaranteed
+        prompt order, batch size, configuration, and generation seed. It is not guaranteed
         across different batch sizes.
         """
         torch = _require_model_dependencies()
@@ -151,7 +151,7 @@ class TransformersSampler:
         rng_devices = list(range(torch.cuda.device_count())) if torch.cuda.is_available() else []
 
         with torch.random.fork_rng(devices=rng_devices), torch.inference_mode():
-            torch.manual_seed(sampling_config.seed)
+            torch.manual_seed(sampling_config.generation_seed)
             for start in range(0, len(prompt_list), sampling_config.batch_size):
                 batch_prompts = prompt_list[start : start + sampling_config.batch_size]
                 tokenized = self._tokenize(batch_prompts)

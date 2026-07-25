@@ -71,7 +71,7 @@ class FakeModel:
 def make_sampling_config(**overrides):
     fields = {
         "num_samples": 2,
-        "seed": 123,
+        "generation_seed": 123,
         "temperature": 0.7,
         "top_p": 0.95,
         "max_new_tokens": 4,

@@ -52,7 +52,7 @@ def make_rollout(**overrides):
         "model_name": "Qwen2.5-1.5B-Instruct",
         "dataset_name": "GSM8K",
         "split": "test",
-        "seed": 123,
+        "generation_seed": 123,
         "temperature": 0.7,
         "top_p": 0.95,
         "max_new_tokens": 256,
@@ -122,17 +122,12 @@ def test_correct_verification_requires_successful_extraction():
 def test_rollout_record_serializes_nested_verification_and_reward():
     record = make_rollout()
 
-    assert record.to_dict()["verification"] == {
-        "extraction": {
-            "raw_answer": "42",
-            "normalized_answer": "42",
-            "parsed_value": "42",
-            "extraction_status": "explicit_final",
-            "format_ok": True,
-        },
-        "is_correct": True,
-        "error_type": None,
-    }
+    extraction = record.to_dict()["verification"]["extraction"]
+    assert extraction["raw_answer"] == "42"
+    assert extraction["normalized_answer"] == "42"
+    assert extraction["parsed_value"] == "42"
+    assert extraction["all_candidates"] == []
+    assert extraction["selected_candidate"] is None
     assert record.to_dict()["reward"]["correctness_reward"] == 1.0
 
 

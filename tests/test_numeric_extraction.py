@@ -2,7 +2,12 @@ from fractions import Fraction
 
 import pytest
 
-from rewardscope import ExtractionStatus, extract_numeric_answer, parse_numeric_value
+from rewardscope import (
+    ExtractionStatus,
+    NumericExtractionConfig,
+    extract_numeric_answer,
+    parse_numeric_value,
+)
 
 
 @pytest.mark.parametrize(
@@ -122,3 +127,74 @@ def test_response_must_be_a_string():
 )
 def test_parse_numeric_value_uses_exact_fraction_arithmetic(raw_answer, expected_value):
     assert parse_numeric_value(raw_answer) == expected_value
+
+
+def test_invalid_early_answer_does_not_block_a_later_boxed_answer():
+    result = extract_numeric_answer(
+        r"Answer: To solve this problem, first reason carefully.\n\boxed{8}"
+    )
+
+    assert result.normalized_answer == "8"
+    assert result.extraction_status is ExtractionStatus.BOXED
+    assert len(result.rejected_candidates) == 1
+    assert result.selected_candidate_type == "boxed"
+
+
+def test_invalid_early_answer_does_not_block_a_later_explicit_answer():
+    result = extract_numeric_answer(
+        "Answer: First work through the steps.\nAnswer: 64"
+    )
+
+    assert result.normalized_answer == "64"
+    assert result.extraction_status is ExtractionStatus.EXPLICIT_FINAL
+
+
+@pytest.mark.parametrize(
+    ("response", "normalized"),
+    [
+        ("Answer: $240,000", "240000"),
+        ("Answer: 540 meters", "540"),
+        ("Answer: 150 miles", "150"),
+        ("The answer is 52", "52"),
+    ],
+)
+def test_common_answer_decorations_are_extracted_conservatively(response, normalized):
+    result = extract_numeric_answer(response)
+
+    assert result.normalized_answer == normalized
+    assert result.extraction_ok is True
+    assert result.format_ok is False
+
+
+@pytest.mark.parametrize(
+    ("policy", "normalized", "status"),
+    [
+        ("literal", "35", ExtractionStatus.EXPLICIT_FINAL),
+        ("fraction", "7/20", ExtractionStatus.EXPLICIT_FINAL),
+        ("reject", None, ExtractionStatus.PARSE_ERROR),
+    ],
+)
+def test_percentage_policy_is_explicit(policy, normalized, status):
+    result = extract_numeric_answer(
+        "Answer: 35%", config=NumericExtractionConfig(percentage_policy=policy)
+    )
+
+    assert result.normalized_answer == normalized
+    assert result.extraction_status is status
+
+
+def test_same_value_candidates_select_the_last_and_conflicts_are_ambiguous():
+    same_value = extract_numeric_answer("Answer: 42\n#### 42")
+    conflict = extract_numeric_answer("Answer: 41\n#### 42")
+
+    assert same_value.normalized_answer == "42"
+    assert same_value.selected_span is not None
+    assert conflict.extraction_status is ExtractionStatus.AMBIGUOUS
+    assert conflict.ambiguity_reason == "conflicting_explicit_final_candidates"
+
+
+def test_reasoning_numbers_are_not_used_without_a_final_candidate():
+    result = extract_numeric_answer("We calculate 20 + 22 = 42 during reasoning.\nNo conclusion.")
+
+    assert result.extraction_status is ExtractionStatus.AMBIGUOUS
+    assert result.extraction_ok is False

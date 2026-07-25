@@ -99,7 +99,7 @@ class _RolloutObservation:
     model_name: str
     dataset_name: str
     split: str
-    seed: int
+    generation_seed: int
     temperature: float
     top_p: float
     max_new_tokens: int
@@ -288,7 +288,7 @@ def _parse_rollout_row(row: Mapping[str, Any], row_index: int) -> _RolloutObserv
         model_name=_require_non_empty_str(row, "model_name"),
         dataset_name=_require_non_empty_str(row, "dataset_name"),
         split=_require_non_empty_str(row, "split"),
-        seed=_require_non_negative_int(row, "seed"),
+        generation_seed=_require_non_negative_int(row, "generation_seed"),
         temperature=_require_non_negative_number(row, "temperature"),
         top_p=_require_probability(row, "top_p"),
         max_new_tokens=_require_positive_int(row, "max_new_tokens"),
@@ -366,13 +366,13 @@ def _find_group_mismatch(
     if row.dataset_name != canonical.dataset_name or row.split != canonical.split:
         return "inconsistent_dataset"
     if (
-        row.seed,
+        row.generation_seed,
         row.temperature,
         row.top_p,
         row.max_new_tokens,
         row.batch_size,
     ) != (
-        canonical.seed,
+        canonical.generation_seed,
         canonical.temperature,
         canonical.top_p,
         canonical.max_new_tokens,

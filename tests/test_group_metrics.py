@@ -20,7 +20,7 @@ def make_row(**overrides):
         "model_name": "Qwen2.5-1.5B-Instruct",
         "dataset_name": "GSM8K",
         "split": "test",
-        "seed": 123,
+        "generation_seed": 123,
         "temperature": 0.7,
         "top_p": 0.95,
         "max_new_tokens": 256,

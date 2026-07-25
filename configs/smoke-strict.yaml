@@ -10,6 +10,7 @@ dataset:
   max_examples: 16
   selection: first
   dataset_seed: 42
+  prompt_template: strict
 
 sampling:
   num_samples: 8
@@ -26,8 +27,8 @@ reward:
   length_penalty_per_token: 0.0
 
 output:
-  run_id: gsm8k-qwen-smoke
-  output_dir: outputs/gsm8k-qwen-smoke-B-extractor-modified
+  run_id: gsm8k-qwen-smoke-C
+  output_dir: outputs/gsm8k-qwen-smoke-C
   keep_failed_run: false
 
 analysis:

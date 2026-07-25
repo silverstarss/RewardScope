@@ -20,6 +20,12 @@ from rewardscope.rewards import RewardConfig
 
 def load_run_config(path: str | Path) -> RunConfig:
     """Load one strict YAML experiment configuration into validated dataclasses."""
+    config, _ = load_run_config_with_requested(path)
+    return config
+
+
+def load_run_config_with_requested(path: str | Path) -> tuple[RunConfig, dict[str, Any]]:
+    """Load strict YAML and retain its requested fields for experiment snapshots."""
     source = Path(path)
     try:
         with source.open(encoding="utf-8") as input_file:
@@ -48,7 +54,7 @@ def load_run_config(path: str | Path) -> RunConfig:
         analysis=_load_analysis_config(
             _require_mapping(config.get("analysis", {}), "analysis")
         ),
-    )
+    ), config
 
 
 def _load_model_config(config: dict[str, Any]) -> ModelConfig:
@@ -64,8 +70,8 @@ def _load_model_config(config: dict[str, Any]) -> ModelConfig:
 def _load_dataset_config(config: dict[str, Any]) -> DatasetConfig:
     _require_exact_keys(
         config,
-        required={"name", "split"},
-        optional={"max_prompts"},
+        required={"name", "config", "split"},
+        optional={"revision", "max_examples", "selection", "dataset_seed", "prompt_template"},
         context="dataset",
     )
     return DatasetConfig(**config)
@@ -76,7 +82,7 @@ def _load_sampling_config(config: dict[str, Any]) -> SamplingConfig:
         config,
         required={
             "num_samples",
-            "seed",
+            "generation_seed",
             "temperature",
             "top_p",
             "max_new_tokens",
@@ -107,20 +113,24 @@ def _load_output_config(config: dict[str, Any]) -> OutputConfig:
     _require_exact_keys(
         config,
         required={"run_id", "output_dir"},
-        optional=set(),
+        optional={"keep_failed_run"},
         context="output",
     )
     output_dir = config["output_dir"]
     if not isinstance(output_dir, str):
         raise ValueError("output.output_dir must be a string.")
-    return OutputConfig(run_id=config["run_id"], output_dir=Path(output_dir))
+    return OutputConfig(
+        run_id=config["run_id"],
+        output_dir=Path(output_dir),
+        keep_failed_run=config.get("keep_failed_run", False),
+    )
 
 
 def _load_analysis_config(config: dict[str, Any]) -> AnalysisConfig:
     _require_exact_keys(
         config,
         required=set(),
-        optional={"strict", "k_values"},
+        optional={"strict", "k_values", "write_plots"},
         context="analysis",
     )
     values = dict(config)
