@@ -130,7 +130,7 @@ class TransformersSampler:
         return cls(model=model, tokenizer=tokenizer, model_config=model_config)
 
     def generate(
-        self, prompts: Sequence[str], sampling_config: SamplingConfig
+        self, prompts: Sequence[PromptInput], sampling_config: SamplingConfig
     ) -> list[GeneratedResponse]:
         """Generate ``num_samples`` responses per prompt in a stable flat order.
 
@@ -200,13 +200,15 @@ class TransformersSampler:
                 )
         return responses
 
-    def render_prompt(self, prompt: str) -> str:
+    def render_prompt(self, prompt: PromptInput) -> str:
         """Render one dataset prompt into the exact model input text without sampling."""
         prompt_list = _validate_prompts([prompt])
         if self._resolve_prompt_format() == "plain":
+            if not isinstance(prompt_list[0], str):
+                raise ValueError("Plain prompt format does not support role-separated messages.")
             return prompt_list[0]
         rendered = self._tokenizer.apply_chat_template(
-            [{"role": "user", "content": prompt_list[0]}],
+            _messages_for_prompt(prompt_list[0]),
             tokenize=False,
             add_generation_prompt=True,
         )
@@ -214,10 +216,10 @@ class TransformersSampler:
             raise ValueError("Tokenizer chat template must render one prompt as a non-empty string.")
         return rendered
 
-    def _tokenize(self, prompts: list[str]) -> Mapping[str, Any]:
+    def _tokenize(self, prompts: list[PromptInput]) -> Mapping[str, Any]:
         prompt_format = self._resolve_prompt_format()
         if prompt_format == "chat":
-            messages = [[{"role": "user", "content": prompt}] for prompt in prompts]
+            messages = [_messages_for_prompt(prompt) for prompt in prompts]
             tokenized = self._tokenizer.apply_chat_template(
                 messages,
                 tokenize=True,
@@ -227,6 +229,8 @@ class TransformersSampler:
                 return_tensors="pt",
             )
         else:
+            if any(not isinstance(prompt, str) for prompt in prompts):
+                raise ValueError("Plain prompt format does not support role-separated messages.")
             tokenized = self._tokenizer(
                 prompts,
                 padding=True,
@@ -306,13 +310,39 @@ def _require_model_dependencies() -> Any:
     return torch
 
 
-def _validate_prompts(prompts: Sequence[str]) -> list[str]:
+PromptInput = str | Sequence[Mapping[str, str]]
+
+
+def _validate_prompts(prompts: Sequence[PromptInput]) -> list[PromptInput]:
     if isinstance(prompts, (str, bytes)) or not isinstance(prompts, Sequence):
-        raise TypeError("prompts must be a sequence of strings.")
+        raise TypeError("prompts must be a sequence of strings or role-separated messages.")
     prompt_list = list(prompts)
-    if any(not isinstance(prompt, str) for prompt in prompt_list):
-        raise ValueError("prompts must contain only strings.")
+    for prompt in prompt_list:
+        if isinstance(prompt, str):
+            if not prompt:
+                raise ValueError("prompt strings must be non-empty.")
+            continue
+        _messages_for_prompt(prompt)
     return prompt_list
+
+
+def _messages_for_prompt(prompt: PromptInput) -> list[dict[str, str]]:
+    if isinstance(prompt, str):
+        return [{"role": "user", "content": prompt}]
+    if isinstance(prompt, (str, bytes)) or not isinstance(prompt, Sequence) or not prompt:
+        raise ValueError("Role-separated messages must be a non-empty sequence.")
+    messages: list[dict[str, str]] = []
+    for index, message in enumerate(prompt):
+        if not isinstance(message, Mapping):
+            raise ValueError(f"messages[{index}] must be a mapping.")
+        role = message.get("role")
+        content = message.get("content")
+        if role not in {"system", "user", "assistant"} or not isinstance(content, str) or not content.strip():
+            raise ValueError(f"messages[{index}] must contain a supported role and non-empty content.")
+        messages.append({"role": role, "content": content})
+    if messages[-1]["role"] != "user":
+        raise ValueError("Role-separated messages must end with a user message for generation.")
+    return messages
 
 
 def _normalize_optional_token_ids(

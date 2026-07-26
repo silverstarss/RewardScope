@@ -7,7 +7,9 @@ from rewardscope.datasets.gsm8k import (
     DEFAULT_GSM8K_PROMPT_TEMPLATE,
     GSM8K_COT_4SHOT_PROMPT_TEMPLATE,
     GSM8K_COT_4SHOT_TERMINAL_PROMPT_TEMPLATE,
+    GSM8K_COT_4SHOT_MULTITURN_TERMINAL_TARGET_TEMPLATE,
     STRICT_GSM8K_PROMPT_TEMPLATE,
+    build_gsm8k_cot_4shot_multiturn_terminal_messages,
     load_gsm8k_examples,
     load_gsm8k_result,
 )
@@ -28,7 +30,8 @@ def load_dataset_examples(config: DatasetConfig) -> list[DatasetExample]:
         selection=config.selection,
         dataset_seed=config.dataset_seed,
         source_indices=config.source_indices,
-        prompt_template=_prompt_template_for(config),
+        prompt_template=_prompt_spec_for(config)[0],
+        messages_builder=_prompt_spec_for(config)[1],
     )
 
 
@@ -43,15 +46,22 @@ def load_dataset_result(config: DatasetConfig) -> DatasetLoadResult:
         max_examples=config.max_examples, selection=config.selection,
         dataset_seed=config.dataset_seed,
         source_indices=config.source_indices,
-        prompt_template=_prompt_template_for(config),
+        prompt_template=_prompt_spec_for(config)[0],
+        messages_builder=_prompt_spec_for(config)[1],
     )
 
 
-def _prompt_template_for(config: DatasetConfig) -> str:
+def _prompt_spec_for(config: DatasetConfig):
     templates = {
-        "baseline": DEFAULT_GSM8K_PROMPT_TEMPLATE,
-        "strict": STRICT_GSM8K_PROMPT_TEMPLATE,
-        "gsm8k_cot_4shot": GSM8K_COT_4SHOT_PROMPT_TEMPLATE,
-        "gsm8k_cot_4shot_terminal": GSM8K_COT_4SHOT_TERMINAL_PROMPT_TEMPLATE,
+        "baseline": (DEFAULT_GSM8K_PROMPT_TEMPLATE, None),
+        "strict": (STRICT_GSM8K_PROMPT_TEMPLATE, None),
+        "gsm8k_cot_4shot": (GSM8K_COT_4SHOT_PROMPT_TEMPLATE, None),
+        "gsm8k_cot_4shot_terminal": (
+            GSM8K_COT_4SHOT_TERMINAL_PROMPT_TEMPLATE, None
+        ),
+        "gsm8k_cot_4shot_multiturn_terminal": (
+            GSM8K_COT_4SHOT_MULTITURN_TERMINAL_TARGET_TEMPLATE,
+            build_gsm8k_cot_4shot_multiturn_terminal_messages,
+        ),
     }
     return templates[config.prompt_template]

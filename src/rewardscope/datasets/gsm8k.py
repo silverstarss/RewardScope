@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from random import Random
 from typing import Any
 
-from rewardscope.datasets.schema import DatasetExample, DatasetLoadResult
+from rewardscope.datasets.schema import ChatMessage, DatasetExample, DatasetLoadResult
 from rewardscope.extraction import extract_numeric_answer
 
 
@@ -42,11 +42,8 @@ Question: {question}
 Answer:
 """
 
-GSM8K_COT_4SHOT_TERMINAL_PROMPT_TEMPLATE = GSM8K_COT_4SHOT_PROMPT_TEMPLATE.removesuffix(
-    "Question: {question}\nAnswer:\n"
-) + """Question: {question}
+_GSM8K_TERMINAL_INSTRUCTION = """Solve the problem step by step.
 
-Solve the problem step by step.
 End your response with exactly one final line in this format:
 
 #### <number>
@@ -54,6 +51,53 @@ End your response with exactly one final line in this format:
 The final line must contain only the number after ####.
 Do not include units, commas, currency symbols, percent signs, or explanations on the final line.
 """
+
+GSM8K_COT_4SHOT_TERMINAL_PROMPT_TEMPLATE = GSM8K_COT_4SHOT_PROMPT_TEMPLATE.removesuffix(
+    "Question: {question}\nAnswer:\n"
+) + """Question: {question}
+
+""" + _GSM8K_TERMINAL_INSTRUCTION
+
+GSM8K_COT_4SHOT_MULTITURN_TERMINAL_TARGET_TEMPLATE = """Question: {question}
+
+""" + _GSM8K_TERMINAL_INSTRUCTION
+
+_GSM8K_COT_4SHOT_DEMONSTRATIONS = (
+    (
+        "There are 15 trees in the grove. Grove workers will plant trees today. After they are done, there will be 21 trees. How many trees did the grove workers plant today?",
+        "There are 15 trees originally. Then there were 21 trees after some more were planted. So there must have been 21 - 15 = 6. The answer is 6.\n#### 6",
+    ),
+    (
+        "If there are 3 cars in the parking lot and 2 more cars arrive, how many cars are in the parking lot?",
+        "There are originally 3 cars. 2 more cars arrive. 3 + 2 = 5. The answer is 5.\n#### 5",
+    ),
+    (
+        "Leah had 32 chocolates and her sister had 42. If they ate 35, how many pieces do they have left in total?",
+        "Originally, Leah had 32 chocolates. Her sister had 42. So they had 32 + 42 = 74. After eating 35, they had 74 - 35 = 39. The answer is 39.\n#### 39",
+    ),
+    (
+        "Jason had 20 tennis balls. He bought 2 more cans of tennis balls. Each can had 3 tennis balls. How many tennis balls does he have now?",
+        "Jason started with 20 tennis balls. 2 cans of 3 tennis balls each is 6 tennis balls. 20 + 6 = 26. The answer is 26.\n#### 26",
+    ),
+)
+
+
+def build_gsm8k_cot_4shot_multiturn_terminal_messages(
+    question: str,
+) -> tuple[ChatMessage, ...]:
+    """Build role-separated CoT demonstrations followed by one strict target turn."""
+    messages = [
+        ChatMessage(role, content)
+        for question_text, answer_text in _GSM8K_COT_4SHOT_DEMONSTRATIONS
+        for role, content in (("user", question_text), ("assistant", answer_text))
+    ]
+    messages.append(
+        ChatMessage(
+            "user",
+            GSM8K_COT_4SHOT_MULTITURN_TERMINAL_TARGET_TEMPLATE.format(question=question),
+        )
+    )
+    return tuple(messages)
 
 
 def load_gsm8k_examples(
@@ -66,6 +110,7 @@ def load_gsm8k_examples(
     dataset_seed: int = 0,
     source_indices: tuple[int, ...] | None = None,
     prompt_template: str = DEFAULT_GSM8K_PROMPT_TEMPLATE,
+    messages_builder: Callable[[str], tuple[ChatMessage, ...]] | None = None,
 ) -> list[DatasetExample]:
     """Load and normalize one GSM8K ``main`` split into RewardScope examples."""
     return list(
@@ -78,6 +123,7 @@ def load_gsm8k_examples(
             dataset_seed=dataset_seed,
             source_indices=source_indices,
             prompt_template=prompt_template,
+            messages_builder=messages_builder,
         ).examples
     )
 
@@ -87,6 +133,7 @@ def load_gsm8k_result(
     max_examples: int | None, selection: str, dataset_seed: int,
     source_indices: tuple[int, ...] | None = None,
     prompt_template: str = DEFAULT_GSM8K_PROMPT_TEMPLATE,
+    messages_builder: Callable[[str], tuple[ChatMessage, ...]] | None = None,
 ) -> DatasetLoadResult:
     """Load GSM8K while preserving selection and source metadata."""
     _require_non_empty_str("split", split)
@@ -109,6 +156,7 @@ def load_gsm8k_result(
             split=split,
             index=index,
             prompt_template=prompt_template,
+            messages_builder=messages_builder,
         )
         for index in selected_indices
     ]
@@ -138,6 +186,7 @@ def _normalize_gsm8k_row(
     split: str,
     index: int,
     prompt_template: str,
+    messages_builder: Callable[[str], tuple[ChatMessage, ...]] | None,
 ) -> DatasetExample:
     if not isinstance(row, dict):
         raise ValueError(f"GSM8K {split} example {index} must be a mapping.")
@@ -163,6 +212,7 @@ def _normalize_gsm8k_row(
         prompt=prompt_template.format(question=question),
         ground_truth=extraction.normalized_answer,
         reference_solution=reference_solution,
+        messages=messages_builder(question) if messages_builder is not None else None,
     )
 
 

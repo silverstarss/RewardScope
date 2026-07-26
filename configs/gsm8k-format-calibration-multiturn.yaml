@@ -1,0 +1,38 @@
+model:
+  name: /home/tutu/tinyvr/models/Qwen/Qwen2___5-1___5B-Instruct
+  prompt_format: chat
+
+dataset:
+  name: gsm8k
+  config: main
+  split: test
+  revision: null
+  max_examples: null
+  selection: first
+  dataset_seed: 42
+  source_indices: [2, 4, 6, 7, 10, 12, 13, 15, 16, 21, 41, 60, 0, 1, 3, 5]
+  prompt_template: gsm8k_cot_4shot_multiturn_terminal
+
+sampling:
+  num_samples: 1
+  generation_seed: 42
+  temperature: 0.0
+  top_p: 1.0
+  max_new_tokens: 512
+  batch_size: 4
+
+reward:
+  correct_answer_reward: 1.0
+  incorrect_answer_reward: 0.0
+  format_compliance_reward: 0.0
+  length_penalty_per_token: 0.0
+
+output:
+  run_id: gsm8k-format-calibration-multiturn-16
+  output_dir: outputs/gsm8k-format-calibration-multiturn-16
+  keep_failed_run: false
+
+analysis:
+  strict: true
+  k_values: [1]
+  write_plots: false

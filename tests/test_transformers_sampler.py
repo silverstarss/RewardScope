@@ -135,6 +135,25 @@ def test_render_prompt_exports_the_chat_templated_generation_input():
     assert kwargs == {"tokenize": False, "add_generation_prompt": True}
 
 
+def test_chat_mode_preserves_role_separated_messages_for_generation_and_rendering():
+    tokenizer = FakeTokenizer()
+    sampler = TransformersSampler(FakeModel(), tokenizer, ModelConfig(name="fake", prompt_format="chat"))
+    messages = [
+        {"role": "user", "content": "demo question"},
+        {"role": "assistant", "content": "demo answer\n#### 6"},
+        {"role": "user", "content": "target question"},
+    ]
+
+    sampler.generate([messages], make_sampling_config(num_samples=1, batch_size=1))
+    rendered = sampler.render_prompt(messages)
+
+    generation_messages, _ = tokenizer.chat_calls[0]
+    assert generation_messages == [messages]
+    rendering_messages, _ = tokenizer.chat_calls[-1]
+    assert rendering_messages == messages
+    assert rendered == "<chat>demo question</chat><assistant>"
+
+
 def test_context_window_overflow_is_an_explicit_error_before_generation():
     model = FakeModel()
     model.config.max_position_embeddings = 2

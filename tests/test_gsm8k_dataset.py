@@ -93,6 +93,28 @@ def test_terminal_cot_template_ends_with_the_strict_final_answer_instruction(mon
     assert examples[0].prompt.endswith("or explanations on the final line.\n")
 
 
+def test_multiturn_terminal_template_uses_role_separated_demonstrations(monkeypatch):
+    monkeypatch.setattr(gsm8k, "_load_hf_dataset", lambda *args, **kwargs: FAKE_GSM8K_ROWS)
+
+    examples = load_dataset_examples(
+        DatasetConfig(
+            name="gsm8k",
+            config="main",
+            split="test",
+            prompt_template="gsm8k_cot_4shot_multiturn_terminal",
+        )
+    )
+
+    messages = examples[0].messages
+    assert messages is not None
+    assert [message.role for message in messages] == [
+        "user", "assistant", "user", "assistant", "user", "assistant", "user", "assistant", "user",
+    ]
+    assert all(message.content.splitlines()[-1].startswith("#### ") for message in messages[1:-1:2])
+    assert messages[-1].content == examples[0].prompt
+    assert messages[-1].content.endswith("or explanations on the final line.\n")
+
+
 def test_gsm8k_adapter_uses_explicit_source_indices_in_requested_order(monkeypatch):
     monkeypatch.setattr(gsm8k, "_load_hf_dataset", lambda *args, **kwargs: FAKE_GSM8K_ROWS)
 

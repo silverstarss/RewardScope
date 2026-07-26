@@ -177,3 +177,18 @@ def test_format_calibration_config_locks_the_fixed_subset_and_decoding_contract(
     assert config.sampling.temperature == 0.0
     assert config.sampling.num_samples == 1
     assert config.sampling.max_new_tokens == 512
+
+
+def test_multiturn_format_calibration_changes_only_the_prompt_message_structure():
+    config = load_run_config(
+        Path(__file__).parents[1] / "configs" / "gsm8k-format-calibration-multiturn.yaml"
+    )
+
+    assert config.dataset.source_indices == (
+        2, 4, 6, 7, 10, 12, 13, 15, 16, 21, 41, 60, 0, 1, 3, 5
+    )
+    assert config.dataset.prompt_template == "gsm8k_cot_4shot_multiturn_terminal"
+    assert config.sampling.temperature == 0.0
+    assert config.sampling.num_samples == 1
+    assert config.sampling.max_new_tokens == 512
+    assert config.sampling.batch_size == 4

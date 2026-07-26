@@ -3,6 +3,24 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
+
+
+@dataclass(frozen=True)
+class ChatMessage:
+    """One validated role/content pair for a chat-formatted model input."""
+
+    role: Literal["system", "user", "assistant"]
+    content: str
+
+    def __post_init__(self) -> None:
+        if self.role not in {"system", "user", "assistant"}:
+            raise ValueError("role must be system, user, or assistant.")
+        if not isinstance(self.content, str) or not self.content.strip():
+            raise ValueError("content must be a non-empty string.")
+
+    def to_dict(self) -> dict[str, str]:
+        return {"role": self.role, "content": self.content}
 
 
 @dataclass(frozen=True)
@@ -17,6 +35,7 @@ class DatasetExample:
     prompt: str
     ground_truth: str
     reference_solution: str
+    messages: tuple[ChatMessage, ...] | None = None
 
     def __post_init__(self) -> None:
         for name in (
@@ -37,6 +56,13 @@ class DatasetExample:
             or self.source_index < 0
         ):
             raise ValueError("source_index must be a non-negative integer.")
+        if self.messages is not None:
+            if not isinstance(self.messages, tuple) or not self.messages:
+                raise ValueError("messages must be a non-empty tuple of ChatMessage objects or None.")
+            if any(not isinstance(message, ChatMessage) for message in self.messages):
+                raise ValueError("messages must be a non-empty tuple of ChatMessage objects or None.")
+            if self.messages[-1].role != "user":
+                raise ValueError("messages must end with a user message for generation.")
 
 
 @dataclass(frozen=True)

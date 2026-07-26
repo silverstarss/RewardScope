@@ -36,7 +36,8 @@ class DatasetConfig:
     dataset_seed: int = 0
     source_indices: tuple[int, ...] | None = None
     prompt_template: Literal[
-        "baseline", "strict", "gsm8k_cot_4shot", "gsm8k_cot_4shot_terminal"
+        "baseline", "strict", "gsm8k_cot_4shot", "gsm8k_cot_4shot_terminal",
+        "gsm8k_cot_4shot_multiturn_terminal",
     ] = "baseline"
 
     def __post_init__(self) -> None:
@@ -48,11 +49,12 @@ class DatasetConfig:
         if self.selection not in {"first", "random"}:
             raise ValueError("selection must be one of: first, random.")
         if self.prompt_template not in {
-            "baseline", "strict", "gsm8k_cot_4shot", "gsm8k_cot_4shot_terminal"
+            "baseline", "strict", "gsm8k_cot_4shot", "gsm8k_cot_4shot_terminal",
+            "gsm8k_cot_4shot_multiturn_terminal",
         }:
             raise ValueError(
                 "prompt_template must be one of: baseline, strict, gsm8k_cot_4shot, "
-                "gsm8k_cot_4shot_terminal."
+                "gsm8k_cot_4shot_terminal, gsm8k_cot_4shot_multiturn_terminal."
             )
         _require_non_negative_int("dataset_seed", self.dataset_seed)
         _require_optional_source_indices(self.source_indices)

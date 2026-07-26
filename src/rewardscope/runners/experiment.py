@@ -84,7 +84,7 @@ def _run_experiment(config: RunConfig, *, requested_config: dict[str, Any]) -> E
         atomic_write_json(provenance_path, _build_provenance(config, sampler, dataset_result, examples))
 
         phase = "generation"
-        responses = sampler.generate([example.prompt for example in examples], config.sampling)
+        responses = sampler.generate([_prompt_input(example) for example in examples], config.sampling)
         _validate_generated_responses(responses, prompt_count=len(examples), num_samples=config.sampling.num_samples)
 
         phase = "verification"
@@ -231,6 +231,10 @@ def _input_row(example: DatasetExample, config: RunConfig) -> dict[str, Any]:
         "prompt_id": example.prompt_id, "source_index": example.source_index,
         "question": example.question, "ground_truth": example.ground_truth,
         "rendered_prompt": example.prompt, "dataset_name": example.dataset_name,
+        "conversation_messages": (
+            [message.to_dict() for message in example.messages]
+            if example.messages is not None else None
+        ),
         "dataset_config": config.dataset.config, "split": example.split,
         "revision": config.dataset.revision,
     }
@@ -244,8 +248,18 @@ def _rendered_prompt_row(example: DatasetExample, sampler: Any) -> dict[str, Any
         "prompt_format": prompt_format,
         "add_generation_prompt": prompt_format == "chat",
         "dataset_prompt": example.prompt,
-        "model_input_prompt": sampler.render_prompt(example.prompt),
+        "conversation_messages": (
+            [message.to_dict() for message in example.messages]
+            if example.messages is not None else None
+        ),
+        "model_input_prompt": sampler.render_prompt(_prompt_input(example)),
     }
+
+
+def _prompt_input(example: DatasetExample) -> str | list[dict[str, str]]:
+    if example.messages is None:
+        return example.prompt
+    return [message.to_dict() for message in example.messages]
 
 
 def _resolved_config(config: RunConfig, output_dir: Path) -> dict[str, Any]:
