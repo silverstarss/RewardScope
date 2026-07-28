@@ -27,19 +27,40 @@ __all__ = [
 ]
 
 from rewardscope.verification import (
+    MathVerifyLatexVerifier,
+    MathVerifyNumericVerifier,
+    extract_final_boxed_latex_gold,
     verify_extracted_numeric_answer,
+    verify_math_verify_latex_answer,
+    verify_math_verify_numeric_answer,
     verify_numeric_answer,
 )
 
-__all__ += ["verify_extracted_numeric_answer", "verify_numeric_answer"]
+__all__ += [
+    "MathVerifyLatexVerifier",
+    "MathVerifyNumericVerifier",
+    "extract_final_boxed_latex_gold",
+    "verify_extracted_numeric_answer",
+    "verify_math_verify_latex_answer",
+    "verify_math_verify_numeric_answer",
+    "verify_numeric_answer",
+]
 
 from rewardscope.rewards import RewardConfig, compute_reward
 
 __all__ += ["RewardConfig", "compute_reward"]
 
-from rewardscope.rollouts import RolloutInput, build_numeric_rollout
+from rewardscope.rollouts import (
+    RolloutInput,
+    build_math_verify_latex_rollout,
+    build_math_verify_numeric_rollout,
+    build_numeric_rollout,
+)
 
-__all__ += ["RolloutInput", "build_numeric_rollout"]
+__all__ += [
+    "RolloutInput", "build_math_verify_latex_rollout", "build_math_verify_numeric_rollout",
+    "build_numeric_rollout",
+]
 
 from rewardscope.io import read_rollouts_jsonl, write_rollouts_jsonl
 
@@ -73,6 +94,7 @@ from rewardscope.reports import (
     RolloutComparisonArtifacts,
     compare_rollouts_jsonl,
     rescore_completed_run,
+    rescore_completed_run_with_math_verify,
 )
 
 __all__ += [
@@ -83,6 +105,7 @@ __all__ += [
     "write_analysis_plots",
     "OfflineRescoreArtifacts",
     "rescore_completed_run",
+    "rescore_completed_run_with_math_verify",
     "RolloutComparisonArtifacts",
     "compare_rollouts_jsonl",
 ]
@@ -94,6 +117,7 @@ from rewardscope.config import (
     OutputConfig,
     RunConfig,
     SamplingConfig,
+    VerificationConfig,
     load_run_config,
 )
 
@@ -104,6 +128,7 @@ __all__ += [
     "OutputConfig",
     "RunConfig",
     "SamplingConfig",
+    "VerificationConfig",
     "load_run_config",
 ]
 
@@ -112,12 +137,18 @@ from rewardscope.datasets import (
     GSM8K_COT_4SHOT_PROMPT_TEMPLATE,
     GSM8K_COT_4SHOT_TERMINAL_PROMPT_TEMPLATE,
     GSM8K_COT_4SHOT_MULTITURN_TERMINAL_TARGET_TEMPLATE,
+    GSM8K_ZERO_SHOT_BOXED_PROMPT_TEMPLATE,
+    MATH_CONFIGS,
+    MATH_DATASET_ID,
+    MODELSCOPE_MATH_DATASET_ID,
+    MATH_ZERO_SHOT_BOXED_PROMPT_TEMPLATE,
     STRICT_GSM8K_PROMPT_TEMPLATE,
     ChatMessage,
     DatasetExample,
     load_dataset_examples,
     load_dataset_result,
     load_gsm8k_examples,
+    load_math_examples,
 )
 
 __all__ += [
@@ -125,12 +156,18 @@ __all__ += [
     "GSM8K_COT_4SHOT_PROMPT_TEMPLATE",
     "GSM8K_COT_4SHOT_TERMINAL_PROMPT_TEMPLATE",
     "GSM8K_COT_4SHOT_MULTITURN_TERMINAL_TARGET_TEMPLATE",
+    "GSM8K_ZERO_SHOT_BOXED_PROMPT_TEMPLATE",
+    "MATH_CONFIGS",
+    "MATH_DATASET_ID",
+    "MODELSCOPE_MATH_DATASET_ID",
+    "MATH_ZERO_SHOT_BOXED_PROMPT_TEMPLATE",
     "STRICT_GSM8K_PROMPT_TEMPLATE",
     "ChatMessage",
     "DatasetExample",
     "load_dataset_examples",
     "load_dataset_result",
     "load_gsm8k_examples",
+    "load_math_examples",
 ]
 
 from rewardscope.runners import ExperimentArtifacts, run_experiment, run_experiment_from_yaml

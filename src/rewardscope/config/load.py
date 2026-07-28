@@ -14,6 +14,7 @@ from rewardscope.config.schema import (
     OutputConfig,
     RunConfig,
     SamplingConfig,
+    VerificationConfig,
 )
 from rewardscope.rewards import RewardConfig
 
@@ -37,7 +38,7 @@ def load_run_config_with_requested(path: str | Path) -> tuple[RunConfig, dict[st
     _require_exact_keys(
         config,
         required={"model", "dataset", "sampling", "output"},
-        optional={"reward", "analysis"},
+        optional={"reward", "analysis", "verification"},
         context="configuration",
     )
 
@@ -53,6 +54,9 @@ def load_run_config_with_requested(path: str | Path) -> tuple[RunConfig, dict[st
         output=_load_output_config(_require_mapping(config["output"], "output")),
         analysis=_load_analysis_config(
             _require_mapping(config.get("analysis", {}), "analysis")
+        ),
+        verification=_load_verification_config(
+            _require_mapping(config.get("verification", {}), "verification")
         ),
     ), config
 
@@ -73,7 +77,7 @@ def _load_dataset_config(config: dict[str, Any]) -> DatasetConfig:
         required={"name", "config", "split"},
         optional={
             "revision", "max_examples", "selection", "dataset_seed", "source_indices",
-            "prompt_template",
+            "levels", "hf_endpoint", "data_source", "prompt_template",
         },
         context="dataset",
     )
@@ -82,6 +86,10 @@ def _load_dataset_config(config: dict[str, Any]) -> DatasetConfig:
         if not isinstance(values["source_indices"], list):
             raise ValueError("dataset.source_indices must be a list of non-negative integers.")
         values["source_indices"] = tuple(values["source_indices"])
+    if "levels" in values:
+        if not isinstance(values["levels"], list):
+            raise ValueError("dataset.levels must be a list of non-empty strings.")
+        values["levels"] = tuple(values["levels"])
     return DatasetConfig(**values)
 
 
@@ -147,6 +155,16 @@ def _load_analysis_config(config: dict[str, Any]) -> AnalysisConfig:
             raise ValueError("analysis.k_values must be a list of positive integers.")
         values["k_values"] = tuple(values["k_values"])
     return AnalysisConfig(**values)
+
+
+def _load_verification_config(config: dict[str, Any]) -> VerificationConfig:
+    _require_exact_keys(
+        config,
+        required=set(),
+        optional={"backend", "mode"},
+        context="verification",
+    )
+    return VerificationConfig(**config)
 
 
 def _require_mapping(value: object, context: str) -> dict[str, Any]:

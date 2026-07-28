@@ -3,21 +3,28 @@ model:
   prompt_format: chat
 
 dataset:
-  name: gsm8k
-  config: main
-  split: test
-  revision: null
-  max_examples: 16
-  selection: first
+  name: math
+  config: all
+  split: train
+  revision: master
+  max_examples: 128
+  selection: random
   dataset_seed: 42
+  levels: [Level 1, Level 2]
+  data_source: modelscope
+  prompt_template: zero_shot_boxed
 
 sampling:
   num_samples: 8
   generation_seed: 42
   temperature: 0.7
   top_p: 0.95
-  max_new_tokens: 256
+  max_new_tokens: 512
   batch_size: 4
+
+verification:
+  backend: math_verify_latex
+  mode: training
 
 reward:
   correct_answer_reward: 1.0
@@ -26,11 +33,11 @@ reward:
   length_penalty_per_token: 0.0
 
 output:
-  run_id: gsm8k-qwen-smoke
-  output_dir: outputs/gsm8k-qwen-smoke
+  run_id: math-qwen-grpo-train-level-1-2-128
+  output_dir: outputs/math-qwen-grpo-train-level-1-2-128
   keep_failed_run: false
 
 analysis:
-  strict: false
+  strict: true
   k_values: [1, 4, 8]
   write_plots: true

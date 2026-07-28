@@ -35,8 +35,11 @@ class DatasetConfig:
     selection: Literal["first", "random"] = "first"
     dataset_seed: int = 0
     source_indices: tuple[int, ...] | None = None
+    levels: tuple[str, ...] | None = None
+    hf_endpoint: str | None = None
+    data_source: Literal["huggingface", "modelscope"] = "huggingface"
     prompt_template: Literal[
-        "baseline", "strict", "gsm8k_cot_4shot", "gsm8k_cot_4shot_terminal",
+        "baseline", "strict", "zero_shot_boxed", "gsm8k_zero_shot_boxed", "gsm8k_cot_4shot", "gsm8k_cot_4shot_terminal",
         "gsm8k_cot_4shot_multiturn_terminal",
     ] = "baseline"
 
@@ -45,19 +48,23 @@ class DatasetConfig:
         _require_non_empty_str("split", self.split)
         _require_optional_non_empty_str("config", self.config)
         _require_optional_non_empty_str("revision", self.revision)
+        _require_optional_non_empty_str("hf_endpoint", self.hf_endpoint)
+        if self.data_source not in {"huggingface", "modelscope"}:
+            raise ValueError("data_source must be huggingface or modelscope.")
         _require_optional_positive_int("max_examples", self.max_examples)
         if self.selection not in {"first", "random"}:
             raise ValueError("selection must be one of: first, random.")
         if self.prompt_template not in {
-            "baseline", "strict", "gsm8k_cot_4shot", "gsm8k_cot_4shot_terminal",
+            "baseline", "strict", "zero_shot_boxed", "gsm8k_zero_shot_boxed", "gsm8k_cot_4shot", "gsm8k_cot_4shot_terminal",
             "gsm8k_cot_4shot_multiturn_terminal",
         }:
             raise ValueError(
-                "prompt_template must be one of: baseline, strict, gsm8k_cot_4shot, "
+                "prompt_template must be one of: baseline, strict, zero_shot_boxed, gsm8k_zero_shot_boxed, gsm8k_cot_4shot, "
                 "gsm8k_cot_4shot_terminal, gsm8k_cot_4shot_multiturn_terminal."
             )
         _require_non_negative_int("dataset_seed", self.dataset_seed)
         _require_optional_source_indices(self.source_indices)
+        _require_optional_levels(self.levels)
         if self.source_indices is not None and self.max_examples is not None:
             raise ValueError("max_examples must be None when source_indices is set.")
         if self.source_indices is not None and self.selection != "first":
@@ -115,6 +122,20 @@ class AnalysisConfig:
 
 
 @dataclass(frozen=True)
+class VerificationConfig:
+    """Verification policy used by dataset-specific verification backends."""
+
+    backend: Literal["numeric", "math_verify", "math_verify_latex"] = "numeric"
+    mode: Literal["evaluation", "training"] = "evaluation"
+
+    def __post_init__(self) -> None:
+        if self.backend not in {"numeric", "math_verify", "math_verify_latex"}:
+            raise ValueError("backend must be numeric, math_verify, or math_verify_latex.")
+        if self.mode not in {"evaluation", "training"}:
+            raise ValueError("mode must be evaluation or training.")
+
+
+@dataclass(frozen=True)
 class RunConfig:
     model: ModelConfig
     dataset: DatasetConfig
@@ -122,6 +143,7 @@ class RunConfig:
     reward: RewardConfig
     output: OutputConfig
     analysis: AnalysisConfig
+    verification: VerificationConfig = VerificationConfig()
 
     def __post_init__(self) -> None:
         if not isinstance(self.model, ModelConfig):
@@ -136,6 +158,18 @@ class RunConfig:
             raise ValueError("output must be an OutputConfig.")
         if not isinstance(self.analysis, AnalysisConfig):
             raise ValueError("analysis must be an AnalysisConfig.")
+        if not isinstance(self.verification, VerificationConfig):
+            raise ValueError("verification must be a VerificationConfig.")
+        if (
+            self.dataset.name.lower() == "math"
+            and self.verification.backend != "math_verify_latex"
+        ):
+            raise ValueError("MATH runs require the math_verify_latex verification backend.")
+        if (
+            self.verification.backend == "math_verify_latex"
+            and self.verification.mode != "training"
+        ):
+            raise ValueError("math_verify_latex runs require training mode for boxed-only verification.")
         if any(k > self.sampling.num_samples for k in self.analysis.k_values):
             raise ValueError("analysis.k_values cannot exceed sampling.num_samples.")
 
@@ -174,6 +208,17 @@ def _require_optional_source_indices(value: object) -> None:
         raise ValueError("source_indices must be a non-empty tuple of non-negative integers or None.")
     if len(set(value)) != len(value):
         raise ValueError("source_indices must not contain duplicates.")
+
+
+def _require_optional_levels(value: object) -> None:
+    if value is None:
+        return
+    if not isinstance(value, tuple) or not value:
+        raise ValueError("levels must be a non-empty tuple of non-empty strings or None.")
+    if any(not isinstance(level, str) or not level.strip() for level in value):
+        raise ValueError("levels must be a non-empty tuple of non-empty strings or None.")
+    if len(set(value)) != len(value):
+        raise ValueError("levels must not contain duplicates.")
 
 
 def _require_non_negative_finite_number(name: str, value: object) -> None:

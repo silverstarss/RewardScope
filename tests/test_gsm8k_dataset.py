@@ -52,19 +52,34 @@ def test_configured_dataset_loader_dispatches_to_gsm8k_adapter(monkeypatch):
     assert examples[0].dataset_name == "gsm8k"
 
 
-def test_strict_prompt_template_uses_the_configured_terminal_answer_contract(monkeypatch):
+def test_strict_prompt_template_uses_the_configured_boxed_answer_contract(monkeypatch):
     monkeypatch.setattr(gsm8k, "_load_hf_dataset", lambda *args, **kwargs: FAKE_GSM8K_ROWS)
 
     examples = load_dataset_examples(
         DatasetConfig(name="gsm8k", config="main", split="test", prompt_template="strict")
     )
 
-    assert "exactly one final line" in examples[0].prompt
-    assert "Answer: <number>" in examples[0].prompt
-    assert "no units, commas, currency symbols" in examples[0].prompt
+    assert "Please reason step by step" in examples[0].prompt
+    assert r"\boxed{}" in examples[0].prompt
 
 
-def test_cot_four_shot_template_has_fixed_demonstrations_and_an_open_answer(monkeypatch):
+def test_zero_shot_boxed_template_uses_the_training_prompt_verbatim(monkeypatch):
+    monkeypatch.setattr(gsm8k, "_load_hf_dataset", lambda *args, **kwargs: FAKE_GSM8K_ROWS)
+
+    examples = load_dataset_examples(
+        DatasetConfig(
+            name="gsm8k", config="main", split="test",
+            prompt_template="gsm8k_zero_shot_boxed",
+        )
+    )
+
+    assert examples[0].prompt == (
+        "Solve the problem step by step and put your final answer within \\boxed{}.\n\n"
+        "Question: What is 2 divided by 4?\n"
+    )
+
+
+def test_cot_four_shot_template_has_fixed_boxed_demonstrations(monkeypatch):
     monkeypatch.setattr(gsm8k, "_load_hf_dataset", lambda *args, **kwargs: FAKE_GSM8K_ROWS)
 
     examples = load_dataset_examples(
@@ -74,11 +89,11 @@ def test_cot_four_shot_template_has_fixed_demonstrations_and_an_open_answer(monk
     )
 
     assert examples[0].prompt.count("Question:") == 5
-    assert examples[0].prompt.count("####") == 4
-    assert examples[0].prompt.endswith("Answer:\n")
+    assert examples[0].prompt.count(r"\boxed{") == 5
+    assert examples[0].prompt.endswith(r"within \boxed{}." + "\n")
 
 
-def test_terminal_cot_template_ends_with_the_strict_final_answer_instruction(monkeypatch):
+def test_terminal_cot_template_is_compatible_with_the_boxed_answer_contract(monkeypatch):
     monkeypatch.setattr(gsm8k, "_load_hf_dataset", lambda *args, **kwargs: FAKE_GSM8K_ROWS)
 
     examples = load_dataset_examples(
@@ -89,8 +104,8 @@ def test_terminal_cot_template_ends_with_the_strict_final_answer_instruction(mon
     )
 
     assert examples[0].prompt.count("Question:") == 5
-    assert examples[0].prompt.count("#### ") == 5
-    assert examples[0].prompt.endswith("or explanations on the final line.\n")
+    assert examples[0].prompt.count(r"\boxed{") == 5
+    assert examples[0].prompt.endswith(r"within \boxed{}." + "\n")
 
 
 def test_multiturn_terminal_template_uses_role_separated_demonstrations(monkeypatch):
@@ -110,9 +125,9 @@ def test_multiturn_terminal_template_uses_role_separated_demonstrations(monkeypa
     assert [message.role for message in messages] == [
         "user", "assistant", "user", "assistant", "user", "assistant", "user", "assistant", "user",
     ]
-    assert all(message.content.splitlines()[-1].startswith("#### ") for message in messages[1:-1:2])
+    assert all(message.content.splitlines()[-1].startswith(r"\boxed{") for message in messages[1:-1:2])
     assert messages[-1].content == examples[0].prompt
-    assert messages[-1].content.endswith("or explanations on the final line.\n")
+    assert messages[-1].content.endswith(r"within \boxed{}." + "\n")
 
 
 def test_gsm8k_adapter_uses_explicit_source_indices_in_requested_order(monkeypatch):
@@ -124,9 +139,9 @@ def test_gsm8k_adapter_uses_explicit_source_indices_in_requested_order(monkeypat
 
 
 def test_unsupported_dataset_is_rejected_without_importing_hugging_face_data():
-    config = DatasetConfig(name="math", config=None, split="test")
+    config = DatasetConfig(name="algebra", config=None, split="test")
 
-    with pytest.raises(ValueError, match="Unsupported dataset: 'math'"):
+    with pytest.raises(ValueError, match="Unsupported dataset: 'algebra'"):
         load_dataset_examples(config)
 
 

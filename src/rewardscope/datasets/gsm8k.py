@@ -11,73 +11,61 @@ from rewardscope.extraction import extract_numeric_answer
 
 
 DEFAULT_GSM8K_PROMPT_TEMPLATE = """Solve the following problem.
-Give the final answer as: Answer: <number>
+Please reason step by step and put your final answer within \\boxed{{}}.
 
 Question: {question}
 """
 
-STRICT_GSM8K_PROMPT_TEMPLATE = """Solve the following problem.
+GSM8K_ZERO_SHOT_BOXED_PROMPT_TEMPLATE = """Solve the problem step by step and put your final answer within \\boxed{{}}.
 
 Question: {question}
-
-End your response with exactly one final line in this exact format:
-Answer: <number>
-In <number>, use only the numeric value: no units, commas, currency symbols, percent signs, or explanations.
 """
+
+STRICT_GSM8K_PROMPT_TEMPLATE = DEFAULT_GSM8K_PROMPT_TEMPLATE
 
 # Four fixed demonstrations make this a reproducible GSM8K CoT sanity prompt.
 GSM8K_COT_4SHOT_PROMPT_TEMPLATE = """Question: There are 15 trees in the grove. Grove workers will plant trees today. After they are done, there will be 21 trees. How many trees did the grove workers plant today?
-Answer: There are 15 trees originally. Then there were 21 trees after some more were planted. So there must have been 21 - 15 = 6. The answer is 6. #### 6
+Answer: There are 15 trees originally. Then there were 21 trees after some more were planted. So there must have been 21 - 15 = 6. The answer is 6. \\boxed{{6}}
 
 Question: If there are 3 cars in the parking lot and 2 more cars arrive, how many cars are in the parking lot?
-Answer: There are originally 3 cars. 2 more cars arrive. 3 + 2 = 5. The answer is 5. #### 5
+Answer: There are originally 3 cars. 2 more cars arrive. 3 + 2 = 5. The answer is 5. \\boxed{{5}}
 
 Question: Leah had 32 chocolates and her sister had 42. If they ate 35, how many pieces do they have left in total?
-Answer: Originally, Leah had 32 chocolates. Her sister had 42. So they had 32 + 42 = 74. After eating 35, they had 74 - 35 = 39. The answer is 39. #### 39
+Answer: Originally, Leah had 32 chocolates. Her sister had 42. So they had 32 + 42 = 74. After eating 35, they had 74 - 35 = 39. The answer is 39. \\boxed{{39}}
 
 Question: Jason had 20 tennis balls. He bought 2 more cans of tennis balls. Each can had 3 tennis balls. How many tennis balls does he have now?
-Answer: Jason started with 20 tennis balls. 2 cans of 3 tennis balls each is 6 tennis balls. 20 + 6 = 26. The answer is 26. #### 26
+Answer: Jason started with 20 tennis balls. 2 cans of 3 tennis balls each is 6 tennis balls. 20 + 6 = 26. The answer is 26. \\boxed{{26}}
 
 Question: {question}
-Answer:
+
+Please reason step by step and put your final answer within \\boxed{{}}.
 """
 
-_GSM8K_TERMINAL_INSTRUCTION = """Solve the problem step by step.
-
-End your response with exactly one final line in this format:
-
-#### <number>
-
-The final line must contain only the number after ####.
-Do not include units, commas, currency symbols, percent signs, or explanations on the final line.
+_GSM8K_BOXED_INSTRUCTION = """Please reason step by step and put your final answer within \\boxed{{}}.
 """
 
-GSM8K_COT_4SHOT_TERMINAL_PROMPT_TEMPLATE = GSM8K_COT_4SHOT_PROMPT_TEMPLATE.removesuffix(
-    "Question: {question}\nAnswer:\n"
-) + """Question: {question}
-
-""" + _GSM8K_TERMINAL_INSTRUCTION
+GSM8K_COT_4SHOT_TERMINAL_PROMPT_TEMPLATE = GSM8K_COT_4SHOT_PROMPT_TEMPLATE
 
 GSM8K_COT_4SHOT_MULTITURN_TERMINAL_TARGET_TEMPLATE = """Question: {question}
 
-""" + _GSM8K_TERMINAL_INSTRUCTION
+""" + _GSM8K_BOXED_INSTRUCTION
 
 _GSM8K_COT_4SHOT_DEMONSTRATIONS = (
     (
         "There are 15 trees in the grove. Grove workers will plant trees today. After they are done, there will be 21 trees. How many trees did the grove workers plant today?",
-        "There are 15 trees originally. Then there were 21 trees after some more were planted. So there must have been 21 - 15 = 6. The answer is 6.\n#### 6",
+        "There are 15 trees originally. Then there were 21 trees after some more were planted. So there must have been 21 - 15 = 6. The answer is 6.\n\\boxed{6}",
     ),
     (
         "If there are 3 cars in the parking lot and 2 more cars arrive, how many cars are in the parking lot?",
-        "There are originally 3 cars. 2 more cars arrive. 3 + 2 = 5. The answer is 5.\n#### 5",
+        "There are originally 3 cars. 2 more cars arrive. 3 + 2 = 5. The answer is 5.\n\\boxed{5}",
     ),
     (
         "Leah had 32 chocolates and her sister had 42. If they ate 35, how many pieces do they have left in total?",
-        "Originally, Leah had 32 chocolates. Her sister had 42. So they had 32 + 42 = 74. After eating 35, they had 74 - 35 = 39. The answer is 39.\n#### 39",
+        "Originally, Leah had 32 chocolates. Her sister had 42. So they had 32 + 42 = 74. After eating 35, they had 74 - 35 = 39. The answer is 39.\n\\boxed{39}",
     ),
     (
         "Jason had 20 tennis balls. He bought 2 more cans of tennis balls. Each can had 3 tennis balls. How many tennis balls does he have now?",
-        "Jason started with 20 tennis balls. 2 cans of 3 tennis balls each is 6 tennis balls. 20 + 6 = 26. The answer is 26.\n#### 26",
+        "Jason started with 20 tennis balls. 2 cans of 3 tennis balls each is 6 tennis balls. 20 + 6 = 26. The answer is 26.\n\\boxed{26}",
     ),
 )
 

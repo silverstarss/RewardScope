@@ -7,7 +7,11 @@ from dataclasses import dataclass
 from rewardscope.extraction import NumericExtractionConfig
 from rewardscope.rewards import RewardConfig, compute_reward
 from rewardscope.schemas import RolloutRecord
-from rewardscope.verification import verify_numeric_answer
+from rewardscope.verification import (
+    MathVerifyLatexVerifier,
+    MathVerifyNumericVerifier,
+    verify_numeric_answer,
+)
 
 
 @dataclass(frozen=True)
@@ -31,6 +35,7 @@ class RolloutInput:
     prompt_tokens: int
     response_tokens: int
     hit_max_length: bool
+    finish_reason: str | None = None
 
 
 def build_numeric_rollout(
@@ -47,11 +52,43 @@ def build_numeric_rollout(
         rollout_input.ground_truth,
         extraction_config=extraction_config,
     )
-    reward = compute_reward(
-        verification,
-        response_tokens=rollout_input.response_tokens,
-        config=reward_config,
+    return _complete_rollout(rollout_input, verification, reward_config)
+
+
+def build_math_verify_numeric_rollout(
+    rollout_input: RolloutInput,
+    reward_config: RewardConfig = RewardConfig(),
+    *,
+    mode: str = "evaluation",
+) -> RolloutRecord:
+    """Verify one rollout using Math-Verify and package its reward details."""
+    if not isinstance(rollout_input, RolloutInput):
+        raise TypeError("rollout_input must be a RolloutInput.")
+    verification = MathVerifyNumericVerifier(mode=mode).verify(
+        rollout_input.response,
+        rollout_input.ground_truth,
     )
+    return _complete_rollout(rollout_input, verification, reward_config)
+
+
+def build_math_verify_latex_rollout(
+    rollout_input: RolloutInput,
+    reward_config: RewardConfig = RewardConfig(),
+    *,
+    mode: str = "training",
+) -> RolloutRecord:
+    """Verify one MATH rollout with LaTeX gold and strict boxed prediction parsing."""
+    if not isinstance(rollout_input, RolloutInput):
+        raise TypeError("rollout_input must be a RolloutInput.")
+    verification = MathVerifyLatexVerifier(mode=mode).verify(
+        rollout_input.response,
+        rollout_input.ground_truth,
+    )
+    return _complete_rollout(rollout_input, verification, reward_config)
+
+
+def _complete_rollout(rollout_input: RolloutInput, verification, reward_config: RewardConfig) -> RolloutRecord:
+    reward = compute_reward(verification, response_tokens=rollout_input.response_tokens, config=reward_config)
     return RolloutRecord(
         run_id=rollout_input.run_id,
         prompt_id=rollout_input.prompt_id,
@@ -71,5 +108,10 @@ def build_numeric_rollout(
         reward=reward,
         prompt_tokens=rollout_input.prompt_tokens,
         response_tokens=rollout_input.response_tokens,
+        finish_reason=(
+            rollout_input.finish_reason
+            if rollout_input.finish_reason is not None
+            else "length" if rollout_input.hit_max_length else "eos"
+        ),
         hit_max_length=rollout_input.hit_max_length,
     )

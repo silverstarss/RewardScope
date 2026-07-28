@@ -11,6 +11,7 @@ from rewardscope import (
     RewardConfig,
     RunConfig,
     SamplingConfig,
+    VerificationConfig,
 )
 from rewardscope.datasets.schema import DatasetLoadResult
 from rewardscope.runners import experiment
@@ -95,6 +96,8 @@ def test_successful_run_commits_staging_and_writes_complete_manifest(tmp_path):
     rendered_prompt = json.loads(artifacts.rendered_prompt_json.read_text(encoding="utf-8"))
     assert rendered_prompt["model_input_prompt"] == "<user>Question: 40 + 2</user><assistant>"
     assert len(artifacts.rollouts_jsonl.read_text(encoding="utf-8").splitlines()) == 4
+    first_rollout = json.loads(artifacts.rollouts_jsonl.read_text(encoding="utf-8").splitlines()[0])
+    assert first_rollout["finish_reason"] == "eos"
     manifest = json.loads(artifacts.manifest_json.read_text(encoding="utf-8"))
     assert manifest["status"] == "completed"
     assert {item["path"] for item in manifest["artifacts"]} >= {
@@ -215,6 +218,24 @@ def test_invalid_sampler_contract_prevents_final_commit(tmp_path):
         experiment.run_experiment(config)
 
     assert not config.output.output_dir.exists()
+
+
+def test_math_verify_backend_is_selected_when_requested(tmp_path, monkeypatch):
+    calls = []
+
+    def fake_math_rollout(rollout_input, reward_config, *, mode):
+        calls.append(mode)
+        return experiment.build_numeric_rollout(rollout_input, reward_config=reward_config)
+
+    monkeypatch.setattr(experiment, "build_math_verify_numeric_rollout", fake_math_rollout)
+    config = make_config(
+        tmp_path,
+        verification=VerificationConfig(backend="math_verify", mode="evaluation"),
+    )
+
+    experiment.run_experiment(config)
+
+    assert calls == ["evaluation"] * 4
 
 
 def test_snapshot_provenance_and_core_results_are_deterministic_for_fake_runs(tmp_path):

@@ -129,6 +129,12 @@ def test_rollout_record_serializes_nested_verification_and_reward():
     assert extraction["all_candidates"] == []
     assert extraction["selected_candidate"] is None
     assert record.to_dict()["reward"]["correctness_reward"] == 1.0
+    assert record.to_dict()["finish_reason"] == "eos"
+
+
+def test_rollout_record_rejects_inconsistent_finish_reason_and_truncation_flag():
+    with pytest.raises(ValueError, match="must agree with finish_reason"):
+        make_rollout(finish_reason="length", hit_max_length=False)
 
 
 @pytest.mark.parametrize("field_name", ["prompt_tokens", "response_tokens"])

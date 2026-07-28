@@ -8,6 +8,7 @@ from rewardscope.config.schema import (
     OutputConfig,
     RunConfig,
     SamplingConfig,
+    VerificationConfig,
 )
 
 __all__ = [
@@ -17,6 +18,7 @@ __all__ = [
     "OutputConfig",
     "RunConfig",
     "SamplingConfig",
+    "VerificationConfig",
     "load_run_config",
     "load_run_config_with_requested",
 ]

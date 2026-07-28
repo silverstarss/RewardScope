@@ -72,6 +72,8 @@ class DatasetLoadResult:
     examples: tuple[DatasetExample, ...]
     source_count: int
     fingerprint: str | None
+    gold_parse_attempt_count: int | None = None
+    gold_parse_failure_count: int | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -84,3 +86,29 @@ class DatasetLoadResult:
             not isinstance(self.fingerprint, str) or not self.fingerprint
         ):
             raise ValueError("fingerprint must be a non-empty string or None.")
+        for name in ("gold_parse_attempt_count", "gold_parse_failure_count"):
+            value = getattr(self, name)
+            if value is not None and (
+                not isinstance(value, int) or isinstance(value, bool) or value < 0
+            ):
+                raise ValueError(f"{name} must be a non-negative integer or None.")
+        if (
+            self.gold_parse_failure_count is not None
+            and self.gold_parse_attempt_count is None
+        ):
+            raise ValueError("gold_parse_attempt_count is required when gold_parse_failure_count is set.")
+        if (
+            self.gold_parse_attempt_count is not None
+            and self.gold_parse_failure_count is not None
+            and self.gold_parse_failure_count > self.gold_parse_attempt_count
+        ):
+            raise ValueError("gold_parse_failure_count cannot exceed gold_parse_attempt_count.")
+
+    @property
+    def gold_parse_failure_rate(self) -> float | None:
+        if self.gold_parse_attempt_count is None:
+            return None
+        if self.gold_parse_attempt_count == 0:
+            return 0.0
+        assert self.gold_parse_failure_count is not None
+        return self.gold_parse_failure_count / self.gold_parse_attempt_count

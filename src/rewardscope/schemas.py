@@ -6,7 +6,10 @@ from dataclasses import dataclass, fields
 from enum import Enum
 from fractions import Fraction
 from math import isfinite
-from typing import Any
+from typing import Any, Literal
+
+
+ParsedMathValue = Fraction | str
 
 
 class ExtractionStatus(str, Enum):
@@ -28,7 +31,7 @@ class ExtractionCandidate:
     raw_answer: str
     span: tuple[int, int]
     normalized_answer: str | None = None
-    parsed_value: Fraction | None = None
+    parsed_value: ParsedMathValue | None = None
     format_marker_ok: bool = False
     format_ok: bool = False
     rejection_reason: str | None = None
@@ -53,8 +56,10 @@ class ExtractionCandidate:
                 raise ValueError("Rejected candidates cannot have a normalized_answer.")
             if self.format_ok:
                 raise ValueError("Rejected candidates cannot be format-compliant.")
-        elif not isinstance(self.parsed_value, Fraction):
-            raise ValueError("parsed_value must be a Fraction or None.")
+        elif not isinstance(self.parsed_value, (Fraction, str)) or (
+            isinstance(self.parsed_value, str) and not self.parsed_value
+        ):
+            raise ValueError("parsed_value must be a Fraction, a non-empty math expression, or None.")
 
 
 _SUCCESSFUL_EXTRACTION_STATUSES = frozenset(
@@ -68,11 +73,11 @@ _SUCCESSFUL_EXTRACTION_STATUSES = frozenset(
 
 @dataclass(frozen=True)
 class ExtractionResult:
-    """A candidate answer, its normalized form, and its exact numeric value."""
+    """A candidate answer, its normalized form, and parsed numeric or LaTeX value."""
 
     raw_answer: str | None
     normalized_answer: str | None
-    parsed_value: Fraction | None
+    parsed_value: ParsedMathValue | None
     extraction_status: ExtractionStatus
     format_ok: bool
     all_candidates: tuple[ExtractionCandidate, ...] = ()
@@ -94,8 +99,12 @@ class ExtractionResult:
         if self.extraction_ok:
             _require_non_empty_str("raw_answer", self.raw_answer)
             _require_non_empty_str("normalized_answer", self.normalized_answer)
-            if not isinstance(self.parsed_value, Fraction):
-                raise ValueError("Successful extraction requires a Fraction parsed_value.")
+            if not isinstance(self.parsed_value, (Fraction, str)) or (
+                isinstance(self.parsed_value, str) and not self.parsed_value
+            ):
+                raise ValueError(
+                    "Successful extraction requires a Fraction or non-empty math expression parsed_value."
+                )
         else:
             if self.parsed_value is not None:
                 raise ValueError("Failed extraction cannot have a parsed_value.")
@@ -199,6 +208,7 @@ class RolloutRecord:
     prompt_tokens: int
     response_tokens: int
     hit_max_length: bool
+    finish_reason: Literal["eos", "length"] | None = None
 
     def __post_init__(self) -> None:
         """Validate identifiers, generation settings, and token accounting."""
@@ -216,6 +226,14 @@ class RolloutRecord:
         _require_non_negative_float("temperature", self.temperature)
         _require_probability("top_p", self.top_p)
         _require_bool("hit_max_length", self.hit_max_length)
+        finish_reason = self.finish_reason
+        if finish_reason is None:
+            finish_reason = "length" if self.hit_max_length else "eos"
+            object.__setattr__(self, "finish_reason", finish_reason)
+        if finish_reason not in {"eos", "length"}:
+            raise ValueError("finish_reason must be eos or length.")
+        if self.hit_max_length != (finish_reason == "length"):
+            raise ValueError("hit_max_length must agree with finish_reason.")
 
         if not isinstance(self.verification, VerificationResult):
             raise ValueError("verification must be a VerificationResult.")

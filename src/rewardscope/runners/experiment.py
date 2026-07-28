@@ -20,7 +20,12 @@ from rewardscope.io import write_rollouts_jsonl
 from rewardscope.io.atomic import atomic_write_json, atomic_write_jsonl
 from rewardscope.metrics import PromptGroupMetricsResult, PromptGroupSummary
 from rewardscope.reports.analysis import AnalysisArtifacts, analyze_rollouts_jsonl, write_analysis_report
-from rewardscope.rollouts import RolloutInput, build_numeric_rollout
+from rewardscope.rollouts import (
+    RolloutInput,
+    build_math_verify_latex_rollout,
+    build_math_verify_numeric_rollout,
+    build_numeric_rollout,
+)
 from rewardscope.sampling import GeneratedResponse, TransformersSampler
 from rewardscope.sampling.transformers import build_generation_kwargs
 
@@ -89,34 +94,29 @@ def _run_experiment(config: RunConfig, *, requested_config: dict[str, Any]) -> E
 
         phase = "verification"
         records = []
-        extraction_config = _extraction_config_for_dataset(config)
         for response in responses:
             example = examples[response.prompt_index]
-            records.append(
-                build_numeric_rollout(
-                    RolloutInput(
-                        run_id=config.output.run_id,
-                        prompt_id=example.prompt_id,
-                        sample_id=response.sample_index,
-                        model_name=config.model.name,
-                        dataset_name=example.dataset_name,
-                        split=example.split,
-                        generation_seed=config.sampling.generation_seed,
-                        temperature=config.sampling.temperature,
-                        top_p=config.sampling.top_p,
-                        max_new_tokens=config.sampling.max_new_tokens,
-                        batch_size=config.sampling.batch_size,
-                        prompt=example.prompt,
-                        response=response.response,
-                        ground_truth=example.ground_truth,
-                        prompt_tokens=response.prompt_tokens,
-                        response_tokens=response.response_tokens,
-                        hit_max_length=response.hit_max_length,
-                    ),
-                    reward_config=config.reward,
-                    extraction_config=extraction_config,
-                )
+            rollout_input = RolloutInput(
+                run_id=config.output.run_id,
+                prompt_id=example.prompt_id,
+                sample_id=response.sample_index,
+                model_name=config.model.name,
+                dataset_name=example.dataset_name,
+                split=example.split,
+                generation_seed=config.sampling.generation_seed,
+                temperature=config.sampling.temperature,
+                top_p=config.sampling.top_p,
+                max_new_tokens=config.sampling.max_new_tokens,
+                batch_size=config.sampling.batch_size,
+                prompt=example.prompt,
+                response=response.response,
+                ground_truth=example.ground_truth,
+                prompt_tokens=response.prompt_tokens,
+                response_tokens=response.response_tokens,
+                finish_reason=response.finish_reason,
+                hit_max_length=response.hit_max_length,
             )
+            records.append(_build_rollout(config, rollout_input))
         if not records:
             raise ValueError("Sampler produced no rollout records.")
 
@@ -297,14 +297,26 @@ def _build_provenance(config: RunConfig, sampler: Any, dataset_result: Any, exam
             "name": config.dataset.name, "config": config.dataset.config,
             "split": config.dataset.split, "revision": config.dataset.revision,
             "selection": config.dataset.selection, "dataset_seed": config.dataset.dataset_seed,
+            "levels": list(config.dataset.levels) if config.dataset.levels else None,
+            "hf_endpoint": config.dataset.hf_endpoint,
+            "data_source": config.dataset.data_source,
             "requested_source_indices": list(config.dataset.source_indices) if config.dataset.source_indices else None,
             "source_count": dataset_result.source_count, "selected_count": len(examples),
             "selected_source_indices": [example.source_index for example in examples],
             "selected_prompt_ids": [example.prompt_id for example in examples],
             "fingerprint": dataset_result.fingerprint,
+            "gold_parse_attempt_count": dataset_result.gold_parse_attempt_count,
+            "gold_parse_failure_count": dataset_result.gold_parse_failure_count,
+            "gold_parse_failure_rate": dataset_result.gold_parse_failure_rate,
         },
         "generation": {"generation_seed": config.sampling.generation_seed, "kwargs": build_generation_kwargs(config.sampling)},
-        "extraction": {"percentage_policy": _extraction_config_for_dataset(config).percentage_policy},
+        "verification": {
+            "backend": config.verification.backend,
+            "mode": config.verification.mode,
+            "math_verify_version": _package_version("math-verify"),
+            "percentage_policy": _extraction_config_for_dataset(config).percentage_policy,
+            "gold_parser": "latex" if config.verification.backend == "math_verify_latex" else "expression",
+        },
         "runtime": _runtime_provenance(),
     }
 
@@ -401,4 +413,24 @@ def _relocate_plots(plots: Any | None, directory: Path) -> Any | None:
 def _extraction_config_for_dataset(config: RunConfig) -> NumericExtractionConfig:
     return NumericExtractionConfig(
         percentage_policy="literal" if config.dataset.name.lower() == "gsm8k" else "reject"
+    )
+
+
+def _build_rollout(config: RunConfig, rollout_input: RolloutInput):
+    if config.verification.backend == "math_verify_latex":
+        return build_math_verify_latex_rollout(
+            rollout_input,
+            reward_config=config.reward,
+            mode=config.verification.mode,
+        )
+    if config.verification.backend == "math_verify":
+        return build_math_verify_numeric_rollout(
+            rollout_input,
+            reward_config=config.reward,
+            mode=config.verification.mode,
+        )
+    return build_numeric_rollout(
+        rollout_input,
+        reward_config=config.reward,
+        extraction_config=_extraction_config_for_dataset(config),
     )

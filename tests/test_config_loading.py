@@ -192,3 +192,81 @@ def test_multiturn_format_calibration_changes_only_the_prompt_message_structure(
     assert config.sampling.num_samples == 1
     assert config.sampling.max_new_tokens == 512
     assert config.sampling.batch_size == 4
+
+
+def test_math_verify_sanity_config_locks_the_boxed_evaluation_contract():
+    config = load_run_config(
+        Path(__file__).parents[1] / "configs" / "gsm8k-math-verify-sanity.yaml"
+    )
+
+    assert config.dataset.prompt_template == "gsm8k_cot_4shot"
+    assert config.verification.backend == "math_verify"
+    assert config.verification.mode == "evaluation"
+    assert config.sampling.temperature == 0.0
+    assert config.sampling.num_samples == 1
+    assert config.sampling.max_new_tokens == 512
+
+
+def test_zero_shot_boxed_sanity_config_locks_the_training_prompt_contract():
+    config = load_run_config(
+        Path(__file__).parents[1] / "configs" / "gsm8k-zero-shot-boxed-sanity.yaml"
+    )
+
+    assert config.dataset.max_examples == 128
+    assert config.dataset.prompt_template == "gsm8k_zero_shot_boxed"
+    assert config.verification.backend == "math_verify"
+    assert config.verification.mode == "evaluation"
+    assert config.sampling.temperature == 0.0
+    assert config.sampling.num_samples == 1
+    assert config.sampling.max_new_tokens == 512
+
+
+def test_grpo_train_config_locks_the_training_distribution_and_verifier():
+    config = load_run_config(
+        Path(__file__).parents[1] / "configs" / "gsm8k-grpo-train-zero-shot-boxed-128.yaml"
+    )
+
+    assert config.dataset.split == "train"
+    assert config.dataset.max_examples == 128
+    assert config.dataset.selection == "first"
+    assert config.dataset.prompt_template == "gsm8k_zero_shot_boxed"
+    assert config.sampling.temperature == 0.7
+    assert config.sampling.top_p == 0.95
+    assert config.sampling.num_samples == 8
+    assert config.sampling.max_new_tokens == 512
+    assert config.verification.backend == "math_verify"
+    assert config.verification.mode == "training"
+    assert config.analysis.k_values == (1, 4, 8)
+    assert config.analysis.write_plots is True
+
+
+def test_math_level_1_2_config_uses_latex_gold_and_modelscope():
+    config = load_run_config(
+        Path(__file__).parents[1] / "configs" / "math-grpo-train-level-1-2-128.yaml"
+    )
+
+    assert config.dataset.name == "math"
+    assert config.dataset.config == "all"
+    assert config.dataset.split == "train"
+    assert config.dataset.revision == "master"
+    assert config.dataset.selection == "random"
+    assert config.dataset.levels == ("Level 1", "Level 2")
+    assert config.dataset.data_source == "modelscope"
+    assert config.dataset.prompt_template == "zero_shot_boxed"
+    assert config.verification.backend == "math_verify_latex"
+    assert config.verification.mode == "training"
+    assert config.sampling.num_samples == 8
+
+
+def test_math_level_3_config_keeps_the_training_contract():
+    config = load_run_config(
+        Path(__file__).parents[1] / "configs" / "math-grpo-train-level-3-128.yaml"
+    )
+
+    assert config.dataset.levels == ("Level 3",)
+    assert config.dataset.selection == "random"
+    assert config.dataset.data_source == "modelscope"
+    assert config.verification.backend == "math_verify_latex"
+    assert config.verification.mode == "training"
+    assert config.sampling.num_samples == 8
+    assert config.sampling.temperature == 0.7
